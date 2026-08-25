@@ -1,0 +1,3377 @@
+<!doctype html>
+<!--
+  Constelação Taxonômica, jogo de organização de contexto em taxonomias.
+  HTML5 Canvas puro, sem dependências, arquivo único autocontido, funciona offline.
+  © 2026 Thainá Ramos (Nud by Whatevertr). Código e conteúdo: CC BY 4.0. Marca e mascotes: proprietário.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Constelação Taxonômica</title>
+  <meta name="description" content="Jogo de organizar conceitos em taxonomias, no navegador. Parte do Constellation Method.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --pagina: #06050B;
+      --painel: #17141D;
+      --ink: #E9E6F1;
+      --linha: #7D6EB0;
+      --destrutivo: #FF8A5C;
+      --contraste-destrutivo: #0B0910;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    body {
+      display: grid;
+      place-items: start center;
+      background: var(--pagina);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .jogo {
+      position: relative;
+      width: min(1000px, calc(100vw - 8px));
+      margin: 20px auto;
+      padding: 18px 19px 20px;
+      border: 1px solid var(--linha);
+      border-radius: 1px;
+      background: var(--painel);
+    }
+
+    .cabecalho {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      min-width: 0;
+      min-height: 52px;
+      margin-bottom: 14px;
+    }
+
+    .cabecalho > div { min-width: 0; }
+
+    .titulo {
+      margin: 0 0 5px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      overflow-wrap: anywhere;
+      text-transform: uppercase;
+    }
+
+    .instrucao {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 19px;
+      opacity: 0.78;
+    }
+
+    button {
+      flex: 0 0 auto;
+      min-width: 144px;
+      padding: 9px 12px;
+      border: 1px solid var(--linha);
+      border-radius: 1px;
+      background: var(--painel);
+      color: var(--ink);
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    button:not(:disabled):hover,
+    button:focus-visible {
+      outline: 1px solid var(--ink);
+      outline-offset: 2px;
+    }
+
+    .canvas-moldura {
+      position: relative;
+      width: 962px;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--linha);
+      overflow: hidden;
+      background: var(--pagina);
+    }
+
+    canvas {
+      display: block;
+      width: 960px;
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 960 / 600;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    canvas.arrastando { cursor: grabbing; }
+
+    .rodape {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      min-height: 42px;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--linha);
+      border-radius: 1px;
+      overflow-wrap: anywhere;
+      background: var(--pagina);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 19px;
+    }
+
+    .mensagem {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .botoes-dica {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 6px;
+    }
+
+    .botao-dica {
+      min-width: 82px;
+    }
+
+    .botao-desistir {
+      min-width: 96px;
+      border-color: var(--destrutivo);
+      background: var(--destrutivo);
+      color: var(--contraste-destrutivo);
+    }
+
+    .botao-dica[disabled],
+    .botao-desistir[disabled] {
+      border-color: var(--linha);
+      outline: none;
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .painel-dica[hidden],
+    .sprite-par[hidden],
+    .popup-fim[hidden] {
+      display: none;
+    }
+
+    .selfx{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:2px;mix-blend-mode:screen;
+      background:linear-gradient(90deg,transparent,rgba(255,138,92,.6),transparent);background-size:220% 100%;
+      animation:selsweep .6s ease-out forwards;}
+    [data-tema="claro"] .selfx{mix-blend-mode:multiply;
+      background:linear-gradient(90deg,transparent,rgba(153,55,0,.42),transparent);background-size:220% 100%;}
+    @keyframes selsweep{0%{background-position:120% 0;opacity:0;}30%{opacity:1;}100%{background-position:-20% 0;opacity:0;}}
+
+    .popup-fim {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0,0,0,0.45);
+    }
+
+    .popup-celula {
+      width: min(430px, 100%);
+      padding: 20px;
+      border: 1px solid var(--linha);
+      border-radius: 1px;
+      background: var(--painel);
+      color: var(--ink);
+    }
+
+    .popup-rotulo {
+      display: block;
+      margin-bottom: 9px;
+      font-size: 11px;
+      line-height: 13px;
+      letter-spacing: 0.16em;
+    }
+
+    .popup-resultado {
+      margin: 0 0 14px;
+      font-size: 18px;
+      line-height: 23px;
+      letter-spacing: 0.06em;
+    }
+
+    .popup-calculo,
+    .popup-total {
+      margin: 0;
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .popup-calculo span { display: block; }
+
+    .popup-pontos {
+      display: block;
+      margin: 16px 0 7px;
+      font-size: 20px;
+      line-height: 24px;
+    }
+
+    .popup-acao {
+      width: 100%;
+      margin-top: 18px;
+    }
+
+    .painel-dica {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--linha);
+      border-radius: 1px 1px 0 0;
+      background: var(--painel);
+      color: var(--ink);
+      animation: entradaPokedex 180ms ease-out both;
+    }
+
+    .painel-dica.saindo {
+      animation: saidaPokedex 180ms ease-in both;
+    }
+
+    .triade-sprites {
+      display: grid;
+      place-items: center;
+      width: 112px;
+      height: 112px;
+      border: 1px solid var(--linha);
+      border-radius: 1px;
+      overflow: hidden;
+      background: var(--painel);
+    }
+
+    .sprite-par,
+    .triade-svg {
+      width: 96px;
+      height: 96px;
+    }
+
+    .triade-svg {
+      display: block;
+      shape-rendering: crispEdges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .sprite-dia { display: none; }
+    :root[data-tema="escuro"] .sprite-dia { display: none; }
+    :root[data-tema="escuro"] .sprite-noite { display: block; }
+    :root[data-tema="claro"] .sprite-noite { display: none; }
+    :root[data-tema="claro"] .sprite-dia { display: block; }
+
+    .balao-dica {
+      position: relative;
+      min-width: 0;
+      min-height: 112px;
+      padding: 13px 38px 13px 0;
+    }
+
+    .rotulo-triade {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      line-height: 13px;
+    }
+
+    .fala-triade {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      line-height: 19px;
+    }
+
+    .fechar-dica {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+      padding: 0;
+      font-size: 14px;
+      line-height: 22px;
+    }
+
+    .sprite-par[data-personagem="tars"]:not([hidden]) {
+      animation: idleTars 4.8s ease-in-out infinite;
+    }
+
+    .sprite-par[data-personagem="rocky"]:not([hidden]) {
+      transform-origin: 50% 3%;
+      animation: idleRocky 3.6s ease-in-out infinite;
+    }
+
+    .painel-dica.puzzle-completo .sprite-par[data-personagem="rocky"]:not([hidden]) {
+      animation: none;
+      transform: rotate(0deg);
+    }
+
+    .sprite-par[data-personagem="case_"]:not([hidden]) {
+      animation: idleCase 3.4s linear infinite;
+    }
+
+    @keyframes entradaPokedex {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    @keyframes saidaPokedex {
+      from { transform: translateY(0); }
+      to { transform: translateY(100%); }
+    }
+
+    @keyframes idleTars {
+      0%, 100% { transform: scale(1.00); filter: brightness(100%); }
+      50% { transform: scale(1.07); filter: brightness(128%); }
+    }
+
+    @keyframes idleRocky {
+      0%, 100% { transform: rotate(-6.5deg); }
+      50% { transform: rotate(6.5deg); }
+    }
+
+    @keyframes idleCase {
+      0%, 70%, 84%, 100% { transform: translateY(0); filter: brightness(82%); }
+      77% { transform: translateY(-4px); filter: brightness(150%); }
+    }
+
+    @media (max-width: 600px) {
+      .jogo {
+        margin: 4px auto;
+        padding: 8px 7px 9px;
+      }
+
+      .cabecalho {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .titulo {
+        font-size: 15px;
+        letter-spacing: 0.05em;
+      }
+
+      button { width: 100%; }
+
+      .rodape {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+        padding: 9px 10px;
+      }
+
+      .botoes-dica {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+      }
+
+      .botao-dica,
+      .botao-desistir {
+        width: 100%;
+        min-width: 0;
+        padding-inline: 5px;
+      }
+
+      .painel-dica {
+        grid-template-columns: 72px minmax(0, 1fr);
+        gap: 8px;
+        padding: 7px;
+      }
+
+      .triade-sprites {
+        width: 72px;
+        height: 72px;
+      }
+
+      .sprite-par,
+      .triade-svg {
+        width: 64px;
+        height: 64px;
+      }
+
+      .balao-dica {
+        min-height: 72px;
+        padding: 5px 30px 5px 0;
+      }
+
+      .rotulo-triade {
+        margin-bottom: 4px;
+        font-size: 11px;
+        line-height: 11px;
+      }
+
+      .fala-triade {
+        font-size: 13px;
+        line-height: 18px;
+      }
+
+      .fechar-dica {
+        top: 4px;
+        right: 4px;
+      }
+
+      .popup-fim { padding: 10px; }
+
+      .popup-celula {
+        padding: 8px;
+      }
+
+      .popup-rotulo {
+        margin-bottom: 3px;
+        line-height: 11px;
+      }
+
+      .popup-resultado {
+        margin-bottom: 5px;
+        font-size: 14px;
+        line-height: 18px;
+      }
+
+      .popup-calculo,
+      .popup-total {
+        line-height: 16px;
+      }
+
+      .popup-pontos {
+        margin: 6px 0 2px;
+        font-size: 17px;
+        line-height: 20px;
+      }
+
+      .popup-acao {
+        margin-top: 6px;
+        padding-block: 7px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .painel-dica,
+      .selfx,
+      .sprite-par[data-personagem]:not([hidden]),
+      .painel-dica.puzzle-completo .sprite-par[data-personagem="rocky"]:not([hidden]) {
+        animation: none;
+        transition: none;
+        transform: none;
+        filter: none;
+      }
+    }
+
+    .aviso-construcao {
+      position: absolute;
+      z-index: 40;
+      top: 6px;
+      right: 14px;
+      padding: 6px 10px;
+      border: 1px solid var(--destrutivo, #FF8A5C);
+      border-radius: 1px;
+      background: var(--painel, #17141D);
+      color: var(--destrutivo, #FF8A5C);
+      font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      animation: pulso-construcao 2.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes pulso-construcao {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .aviso-construcao { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="jogo" aria-labelledby="titulo-jogo">
+    <div class="aviso-construcao" role="status">[ EM CONSTRUÇÃO ]</div>
+    <header class="cabecalho">
+      <div>
+        <h1 class="titulo" id="titulo-jogo">Constelação taxonômica</h1>
+        <p class="instrucao">Arraste para organizar. Solte sobre um conceito para conectar. Duplo clique desconecta.</p>
+      </div>
+      <button id="trocar-tema" type="button" aria-label="Alternar entre os temas claro e escuro">
+        Claro / escuro
+      </button>
+    </header>
+
+    <div class="canvas-moldura">
+      <canvas id="jogo-canvas" width="960" height="600">
+        Seu navegador precisa oferecer suporte ao elemento Canvas.
+      </canvas>
+
+      <aside class="painel-dica" id="painel-dica" aria-labelledby="rotulo-triade" hidden>
+        <div class="triade-sprites" id="triade-sprites">
+          <div class="sprite-par" data-personagem="case_" hidden>
+            <svg class="triade-svg sprite-noite" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-case-noite">
+              <title id="ttl-case-noite">CASE, vaga-lume, mascote NUD, estado noite</title>
+              <rect x="11" y="3" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="21" y="3" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="4" y="4" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="12" y="4" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="20" y="4" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="28" y="4" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="2" y="5" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="5" y="5" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="5" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="19" y="5" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="27" y="5" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="29" y="5" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="2" y="6" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="6" y="6" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="6" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="15" y="6" width="3" height="1" fill="#06050B"></rect>
+              <rect x="18" y="6" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="26" y="6" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="28" y="6" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="1" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="3" y="7" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="7" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="7" width="5" height="1" fill="#06050B"></rect>
+              <rect x="25" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="26" y="7" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="31" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="2" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="4" y="8" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="8" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="8" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="14" y="8" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="15" y="8" width="3" height="1" fill="#06050B"></rect>
+              <rect x="18" y="8" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="19" y="8" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="24" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="25" y="8" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="30" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="3" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="5" y="9" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="9" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="9" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="9" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="15" y="9" width="3" height="1" fill="#06050B"></rect>
+              <rect x="18" y="9" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="19" y="9" width="1" height="1" fill="#06050B"></rect>
+              <rect x="23" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="24" y="9" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="29" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="4" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="6" y="10" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="10" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="10" width="5" height="1" fill="#06050B"></rect>
+              <rect x="22" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="10" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="26" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="28" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="5" y="11" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="7" y="11" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="11" y="11" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="15" y="11" width="3" height="1" fill="#06050B"></rect>
+              <rect x="21" y="11" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="22" y="11" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="25" y="11" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="27" y="11" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="8" y="12" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="12" y="12" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="12" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="12" width="5" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="12" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="12" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="21" y="12" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="24" y="12" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="9" y="13" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="13" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="13" y="13" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="13" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="16" y="13" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="13" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="13" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="13" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="23" y="13" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="14" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="11" y="14" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="13" y="14" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="14" width="5" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="14" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="14" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="21" y="14" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="22" y="14" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="11" y="15" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="15" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="15" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="16" y="15" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="15" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="15" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="15" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="21" y="15" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="12" y="16" width="1" height="1" fill="#06050B"></rect>
+              <rect x="13" y="16" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="16" width="5" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="16" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="16" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="11" y="17" width="2" height="1" fill="#06050B"></rect>
+              <rect x="13" y="17" width="1" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="17" width="5" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="17" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="17" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="21" y="17" width="1" height="1" fill="#06050B"></rect>
+              <rect x="10" y="18" width="1" height="1" fill="#06050B"></rect>
+              <rect x="12" y="18" width="1" height="1" fill="#06050B"></rect>
+              <rect x="13" y="18" width="7" height="1" fill="#A7A0BA"></rect>
+              <rect x="21" y="18" width="2" height="1" fill="#06050B"></rect>
+              <rect x="9" y="19" width="1" height="1" fill="#06050B"></rect>
+              <rect x="11" y="19" width="1" height="1" fill="#06050B"></rect>
+              <rect x="13" y="19" width="7" height="1" fill="#06050B"></rect>
+              <rect x="21" y="19" width="1" height="1" fill="#06050B"></rect>
+              <rect x="23" y="19" width="1" height="1" fill="#06050B"></rect>
+              <rect x="8" y="20" width="1" height="1" fill="#06050B"></rect>
+              <rect x="11" y="20" width="2" height="1" fill="#06050B"></rect>
+              <rect x="13" y="20" width="7" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="20" width="1" height="1" fill="#06050B"></rect>
+              <rect x="22" y="20" width="1" height="1" fill="#06050B"></rect>
+              <rect x="24" y="20" width="1" height="1" fill="#06050B"></rect>
+              <rect x="10" y="21" width="1" height="1" fill="#06050B"></rect>
+              <rect x="12" y="21" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="21" width="5" height="1" fill="#06050B"></rect>
+              <rect x="20" y="21" width="1" height="1" fill="#06050B"></rect>
+              <rect x="22" y="21" width="1" height="1" fill="#06050B"></rect>
+              <rect x="10" y="22" width="1" height="1" fill="#06050B"></rect>
+              <rect x="12" y="22" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="22" width="5" height="1" fill="#A7A0BA"></rect>
+              <rect x="20" y="22" width="1" height="1" fill="#06050B"></rect>
+              <rect x="23" y="22" width="1" height="1" fill="#06050B"></rect>
+              <rect x="9" y="23" width="1" height="1" fill="#06050B"></rect>
+              <rect x="12" y="23" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="23" width="5" height="1" fill="#FF8A5C"></rect>
+              <rect x="20" y="23" width="1" height="1" fill="#06050B"></rect>
+              <rect x="23" y="23" width="1" height="1" fill="#06050B"></rect>
+              <rect x="11" y="24" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="24" width="5" height="1" fill="#FF8A5C"></rect>
+              <rect x="21" y="24" width="1" height="1" fill="#06050B"></rect>
+              <rect x="11" y="25" width="1" height="1" fill="#06050B"></rect>
+              <rect x="14" y="25" width="1" height="1" fill="#FF8A5C"></rect>
+              <rect x="15" y="25" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="17" y="25" width="2" height="1" fill="#FF8A5C"></rect>
+              <rect x="21" y="25" width="1" height="1" fill="#06050B"></rect>
+              <rect x="15" y="26" width="1" height="1" fill="#FF8A5C"></rect>
+              <rect x="16" y="26" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="17" y="26" width="1" height="1" fill="#FF8A5C"></rect>
+            </svg>
+            <svg class="triade-svg sprite-dia" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-case-dia">
+              <title id="ttl-case-dia">CASE, vaga-lume, mascote NUD, estado dia</title>
+              <rect x="11" y="3" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="21" y="3" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="4" y="4" width="1" height="1" fill="#524B65"></rect>
+              <rect x="12" y="4" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="20" y="4" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="28" y="4" width="1" height="1" fill="#524B65"></rect>
+              <rect x="2" y="5" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="5" y="5" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="5" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="19" y="5" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="27" y="5" width="1" height="1" fill="#524B65"></rect>
+              <rect x="29" y="5" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="2" y="6" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="6" y="6" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="6" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="18" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="26" y="6" width="1" height="1" fill="#524B65"></rect>
+              <rect x="28" y="6" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="1" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="3" y="7" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="7" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="7" width="5" height="1" fill="#2C233D"></rect>
+              <rect x="25" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="26" y="7" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="31" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="2" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="4" y="8" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="8" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="14" y="8" width="1" height="1" fill="#191128"></rect>
+              <rect x="15" y="8" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="18" y="8" width="1" height="1" fill="#191128"></rect>
+              <rect x="19" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="24" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="25" y="8" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="30" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="3" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="5" y="9" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="9" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="9" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="9" width="1" height="1" fill="#191128"></rect>
+              <rect x="15" y="9" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="18" y="9" width="1" height="1" fill="#191128"></rect>
+              <rect x="19" y="9" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="23" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="24" y="9" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="29" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="4" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="6" y="10" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="10" width="5" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="23" y="10" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="26" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="28" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="5" y="11" width="1" height="1" fill="#524B65"></rect>
+              <rect x="7" y="11" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="11" width="1" height="1" fill="#524B65"></rect>
+              <rect x="15" y="11" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="21" y="11" width="1" height="1" fill="#524B65"></rect>
+              <rect x="22" y="11" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="25" y="11" width="1" height="1" fill="#524B65"></rect>
+              <rect x="27" y="11" width="1" height="1" fill="#524B65"></rect>
+              <rect x="8" y="12" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="12" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="12" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="12" width="5" height="1" fill="#524B65"></rect>
+              <rect x="19" y="12" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="12" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="12" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="24" y="12" width="1" height="1" fill="#524B65"></rect>
+              <rect x="9" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="10" y="13" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="13" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="13" width="2" height="1" fill="#524B65"></rect>
+              <rect x="16" y="13" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="13" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="13" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="13" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="23" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="10" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="14" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="14" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="14" width="5" height="1" fill="#524B65"></rect>
+              <rect x="19" y="14" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="14" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="15" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="15" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="15" width="2" height="1" fill="#524B65"></rect>
+              <rect x="16" y="15" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="15" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="15" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="15" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="15" width="1" height="1" fill="#524B65"></rect>
+              <rect x="12" y="16" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="16" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="16" width="5" height="1" fill="#524B65"></rect>
+              <rect x="19" y="16" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="16" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="17" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="17" width="1" height="1" fill="#423B55"></rect>
+              <rect x="14" y="17" width="5" height="1" fill="#524B65"></rect>
+              <rect x="19" y="17" width="1" height="1" fill="#605875"></rect>
+              <rect x="20" y="17" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="17" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="18" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="18" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="18" width="7" height="1" fill="#605875"></rect>
+              <rect x="21" y="18" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="9" y="19" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="19" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="19" width="7" height="1" fill="#2C233D"></rect>
+              <rect x="21" y="19" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="23" y="19" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="8" y="20" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="20" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="20" width="7" height="1" fill="#605875"></rect>
+              <rect x="20" y="20" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="20" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="24" y="20" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="21" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="21" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="21" width="5" height="1" fill="#2C233D"></rect>
+              <rect x="20" y="21" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="21" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="22" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="22" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="22" width="5" height="1" fill="#605875"></rect>
+              <rect x="20" y="22" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="23" y="22" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="9" y="23" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="23" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="23" width="5" height="1" fill="#993700"></rect>
+              <rect x="20" y="23" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="23" y="23" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="24" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="24" width="5" height="1" fill="#993700"></rect>
+              <rect x="21" y="24" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="25" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="14" y="25" width="1" height="1" fill="#993700"></rect>
+              <rect x="15" y="25" width="2" height="1" fill="#191128"></rect>
+              <rect x="17" y="25" width="2" height="1" fill="#993700"></rect>
+              <rect x="21" y="25" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="15" y="26" width="1" height="1" fill="#993700"></rect>
+              <rect x="16" y="26" width="1" height="1" fill="#191128"></rect>
+              <rect x="17" y="26" width="1" height="1" fill="#993700"></rect>
+            </svg>
+          </div>
+          <div class="sprite-par" data-personagem="rocky" hidden>
+            <svg class="triade-svg sprite-noite" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-rocky-noite">
+              <title id="ttl-rocky-noite">ROCKY, prumo com nível, mascote NUD, estado noite</title>
+              <rect x="16" y="0" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="1" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="2" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="3" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="4" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="5" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="6" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="15" y="7" width="2" height="1" fill="#9C91B6"></rect>
+              <rect x="14" y="8" width="5" height="1" fill="#B6B0C8"></rect>
+              <rect x="12" y="9" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="13" y="9" width="7" height="1" fill="#D2CEDF"></rect>
+              <rect x="20" y="9" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="11" y="10" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="12" y="10" width="9" height="1" fill="#D2CEDF"></rect>
+              <rect x="21" y="10" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="10" y="11" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="12" y="11" width="9" height="1" fill="#D2CEDF"></rect>
+              <rect x="21" y="11" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="10" y="12" width="11" height="1" fill="#D2CEDF"></rect>
+              <rect x="21" y="12" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="22" y="12" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="10" y="13" width="11" height="1" fill="#D2CEDF"></rect>
+              <rect x="21" y="13" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="22" y="13" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="11" y="14" width="9" height="1" fill="#D2CEDF"></rect>
+              <rect x="20" y="14" width="1" height="1" fill="#B6B0C8"></rect>
+              <rect x="21" y="14" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="11" y="15" width="2" height="1" fill="#06050B"></rect>
+              <rect x="13" y="15" width="1" height="1" fill="#E9E6F1"></rect>
+              <rect x="14" y="15" width="1" height="1" fill="#D97757"></rect>
+              <rect x="15" y="15" width="7" height="1" fill="#06050B"></rect>
+              <rect x="11" y="16" width="2" height="1" fill="#06050B"></rect>
+              <rect x="13" y="16" width="2" height="1" fill="#FF8A5C"></rect>
+              <rect x="15" y="16" width="7" height="1" fill="#06050B"></rect>
+              <rect x="12" y="17" width="5" height="1" fill="#06050B"></rect>
+              <rect x="17" y="17" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="17" width="1" height="1" fill="#06050B"></rect>
+              <rect x="19" y="17" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="20" y="17" width="1" height="1" fill="#06050B"></rect>
+              <rect x="12" y="18" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="18" width="6" height="1" fill="#B6B0C8"></rect>
+              <rect x="20" y="18" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="12" y="19" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="14" y="19" width="6" height="1" fill="#B6B0C8"></rect>
+              <rect x="20" y="19" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="13" y="20" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="15" y="20" width="4" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="20" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="13" y="21" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="15" y="21" width="4" height="1" fill="#B6B0C8"></rect>
+              <rect x="19" y="21" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="14" y="22" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="16" y="22" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="18" y="22" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="14" y="23" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="16" y="23" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="18" y="23" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="14" y="24" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="16" y="24" width="2" height="1" fill="#B6B0C8"></rect>
+              <rect x="18" y="24" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="15" y="25" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="17" y="25" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="15" y="26" width="2" height="1" fill="#D2CEDF"></rect>
+              <rect x="17" y="26" width="1" height="1" fill="#A7A0BA"></rect>
+              <rect x="15" y="27" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="28" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="29" width="1" height="1" fill="#E0CCFF"></rect>
+            </svg>
+            <svg class="triade-svg sprite-dia" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-rocky-dia">
+              <title id="ttl-rocky-dia">ROCKY, prumo com nível, mascote NUD, estado dia</title>
+              <rect x="16" y="0" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="1" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="2" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="3" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="4" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="5" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="7" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="14" y="8" width="5" height="1" fill="#524B65"></rect>
+              <rect x="12" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="13" y="9" width="7" height="1" fill="#423B55"></rect>
+              <rect x="20" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="12" y="10" width="9" height="1" fill="#423B55"></rect>
+              <rect x="21" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="10" y="11" width="2" height="1" fill="#524B65"></rect>
+              <rect x="12" y="11" width="9" height="1" fill="#423B55"></rect>
+              <rect x="21" y="11" width="2" height="1" fill="#524B65"></rect>
+              <rect x="10" y="12" width="11" height="1" fill="#423B55"></rect>
+              <rect x="21" y="12" width="1" height="1" fill="#524B65"></rect>
+              <rect x="22" y="12" width="1" height="1" fill="#605875"></rect>
+              <rect x="10" y="13" width="11" height="1" fill="#423B55"></rect>
+              <rect x="21" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="22" y="13" width="1" height="1" fill="#605875"></rect>
+              <rect x="11" y="14" width="9" height="1" fill="#423B55"></rect>
+              <rect x="20" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="14" width="1" height="1" fill="#605875"></rect>
+              <rect x="11" y="15" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="15" width="1" height="1" fill="#191128"></rect>
+              <rect x="14" y="15" width="1" height="1" fill="#7D2700"></rect>
+              <rect x="15" y="15" width="7" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="16" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="16" width="2" height="1" fill="#993700"></rect>
+              <rect x="15" y="16" width="7" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="17" width="5" height="1" fill="#2C233D"></rect>
+              <rect x="17" y="17" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="17" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="19" y="17" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="20" y="17" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="18" width="2" height="1" fill="#423B55"></rect>
+              <rect x="14" y="18" width="6" height="1" fill="#524B65"></rect>
+              <rect x="20" y="18" width="1" height="1" fill="#605875"></rect>
+              <rect x="12" y="19" width="2" height="1" fill="#423B55"></rect>
+              <rect x="14" y="19" width="6" height="1" fill="#524B65"></rect>
+              <rect x="20" y="19" width="1" height="1" fill="#605875"></rect>
+              <rect x="13" y="20" width="2" height="1" fill="#423B55"></rect>
+              <rect x="15" y="20" width="4" height="1" fill="#524B65"></rect>
+              <rect x="19" y="20" width="1" height="1" fill="#605875"></rect>
+              <rect x="13" y="21" width="2" height="1" fill="#423B55"></rect>
+              <rect x="15" y="21" width="4" height="1" fill="#524B65"></rect>
+              <rect x="19" y="21" width="1" height="1" fill="#605875"></rect>
+              <rect x="14" y="22" width="2" height="1" fill="#423B55"></rect>
+              <rect x="16" y="22" width="2" height="1" fill="#524B65"></rect>
+              <rect x="18" y="22" width="1" height="1" fill="#605875"></rect>
+              <rect x="14" y="23" width="2" height="1" fill="#423B55"></rect>
+              <rect x="16" y="23" width="2" height="1" fill="#524B65"></rect>
+              <rect x="18" y="23" width="1" height="1" fill="#605875"></rect>
+              <rect x="14" y="24" width="2" height="1" fill="#423B55"></rect>
+              <rect x="16" y="24" width="2" height="1" fill="#524B65"></rect>
+              <rect x="18" y="24" width="1" height="1" fill="#605875"></rect>
+              <rect x="15" y="25" width="2" height="1" fill="#423B55"></rect>
+              <rect x="17" y="25" width="1" height="1" fill="#605875"></rect>
+              <rect x="15" y="26" width="2" height="1" fill="#423B55"></rect>
+              <rect x="17" y="26" width="1" height="1" fill="#605875"></rect>
+              <rect x="15" y="27" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="28" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="29" width="1" height="1" fill="#2C233D"></rect>
+            </svg>
+          </div>
+          <div class="sprite-par" data-personagem="tars" hidden>
+            <svg class="triade-svg sprite-noite" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-tars-noite">
+              <title id="ttl-tars-noite">TARS, cérebro-nebulosa, mascote NUD, estado noite</title>
+              <rect x="15" y="3" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="17" y="3" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="14" y="4" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="15" y="4" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="16" y="4" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="4" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="13" y="5" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="5" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="5" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="5" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="5" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="6" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="10" y="6" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="12" y="6" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="13" y="6" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="15" y="6" width="2" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="6" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="18" y="6" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="19" y="6" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="22" y="6" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="24" y="6" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="7" y="7" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="9" y="7" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="11" y="7" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="7" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="17" y="7" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="7" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="20" y="7" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="22" y="7" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="7" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="24" y="7" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="8" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="10" y="8" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="11" y="8" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="8" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="17" y="8" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="8" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="22" y="8" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="23" y="8" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="24" y="8" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="7" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="8" y="9" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="9" y="9" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="10" y="9" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="11" y="9" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="9" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="17" y="9" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="9" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="9" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="22" y="9" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="24" y="9" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="25" y="9" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="6" y="10" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="7" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="8" y="10" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="9" y="10" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="10" y="10" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="10" width="4" height="1" fill="#E0CCFF"></rect>
+              <rect x="17" y="10" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="10" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="20" y="10" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="21" y="10" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="10" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="24" y="10" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="25" y="10" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="7" y="11" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="11" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="11" width="7" height="1" fill="#E0CCFF"></rect>
+              <rect x="17" y="11" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="11" width="6" height="1" fill="#C8A2FF"></rect>
+              <rect x="24" y="11" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="6" y="12" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="8" y="12" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="12" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="13" y="12" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="12" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="12" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="12" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="12" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="20" y="12" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="12" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="24" y="12" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="26" y="12" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="5" y="13" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="6" y="13" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="9" y="13" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="13" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="13" y="13" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="16" y="13" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="13" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="13" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="20" y="13" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="13" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="25" y="13" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="26" y="13" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="27" y="13" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="4" y="14" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="5" y="14" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="6" y="14" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="7" y="14" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="8" y="14" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="11" y="14" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="12" y="14" width="6" height="1" fill="#C8A2FF"></rect>
+              <rect x="18" y="14" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="20" y="14" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="14" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="25" y="14" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="26" y="14" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="27" y="14" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="5" y="15" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="6" y="15" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="7" y="15" width="6" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="15" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="15" y="15" width="8" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="15" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="24" y="15" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="27" y="15" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="4" y="16" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="6" y="16" width="6" height="1" fill="#C8A2FF"></rect>
+              <rect x="12" y="16" width="4" height="1" fill="#E9E6F1"></rect>
+              <rect x="16" y="16" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="17" y="16" width="9" height="1" fill="#C8A2FF"></rect>
+              <rect x="26" y="16" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="27" y="16" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="5" y="17" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="7" y="17" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="8" y="17" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="10" y="17" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="11" y="17" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="13" y="17" width="2" height="1" fill="#FF8A5C"></rect>
+              <rect x="15" y="17" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="17" y="17" width="4" height="1" fill="#C8A2FF"></rect>
+              <rect x="21" y="17" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="22" y="17" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="25" y="17" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="26" y="17" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="6" y="18" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="18" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="9" y="18" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="11" y="18" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="13" y="18" width="2" height="1" fill="#FF8A5C"></rect>
+              <rect x="15" y="18" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="17" y="18" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="20" y="18" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="21" y="18" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="18" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="24" y="18" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="25" y="18" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="9" y="19" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="11" y="19" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="12" y="19" width="3" height="1" fill="#E9E6F1"></rect>
+              <rect x="15" y="19" width="1" height="1" fill="#E0CCFF"></rect>
+              <rect x="16" y="19" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="17" y="19" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="18" y="19" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="19" width="3" height="1" fill="#E0CCFF"></rect>
+              <rect x="22" y="19" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="19" width="3" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="20" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="10" y="20" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="11" y="20" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="20" width="2" height="1" fill="#E9E6F1"></rect>
+              <rect x="15" y="20" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="16" y="20" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="17" y="20" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="20" width="2" height="1" fill="#E0CCFF"></rect>
+              <rect x="21" y="20" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="22" y="20" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="23" y="20" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="24" y="20" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="9" y="21" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="10" y="21" width="3" height="1" fill="#C8A2FF"></rect>
+              <rect x="13" y="21" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="15" y="21" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="16" y="21" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="17" y="21" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="19" y="21" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="21" y="21" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="22" y="21" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="21" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="8" y="22" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="10" y="22" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="11" y="22" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="12" y="22" width="7" height="1" fill="#B57BFF"></rect>
+              <rect x="19" y="22" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="20" y="22" width="1" height="1" fill="#9C91B6"></rect>
+              <rect x="21" y="22" width="2" height="1" fill="#C8A2FF"></rect>
+              <rect x="23" y="22" width="2" height="1" fill="#B57BFF"></rect>
+              <rect x="6" y="23" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="9" y="23" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="11" y="23" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="13" y="23" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="15" y="23" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="17" y="23" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="19" y="23" width="5" height="1" fill="#B57BFF"></rect>
+              <rect x="20" y="24" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="22" y="24" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="25" y="24" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="9" y="25" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="19" y="26" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="14" y="27" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="8" y="28" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="23" y="28" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="16" y="29" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="26" y="29" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="11" y="30" width="1" height="1" fill="#C8A2FF"></rect>
+              <rect x="21" y="30" width="1" height="1" fill="#B57BFF"></rect>
+              <rect x="15" y="31" width="1" height="1" fill="#B57BFF"></rect>
+            </svg>
+            <svg class="triade-svg sprite-dia" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges" role="img" aria-labelledby="ttl-tars-dia">
+              <title id="ttl-tars-dia">TARS, cérebro-nebulosa, mascote NUD, estado dia</title>
+              <rect x="15" y="3" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="3" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="14" y="4" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="4" width="1" height="1" fill="#524B65"></rect>
+              <rect x="16" y="4" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="4" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="13" y="5" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="5" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="5" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="5" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="5" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="10" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="12" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="13" y="6" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="15" y="6" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="6" width="1" height="1" fill="#524B65"></rect>
+              <rect x="18" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="19" y="6" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="22" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="24" y="6" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="7" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="9" y="7" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="7" width="2" height="1" fill="#524B65"></rect>
+              <rect x="13" y="7" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="17" y="7" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="7" width="2" height="1" fill="#524B65"></rect>
+              <rect x="20" y="7" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="7" width="1" height="1" fill="#524B65"></rect>
+              <rect x="23" y="7" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="24" y="7" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="8" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="11" y="8" width="3" height="1" fill="#524B65"></rect>
+              <rect x="14" y="8" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="17" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="19" y="8" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="23" y="8" width="1" height="1" fill="#524B65"></rect>
+              <rect x="24" y="8" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="8" y="9" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="9" y="9" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="10" y="9" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="9" width="3" height="1" fill="#524B65"></rect>
+              <rect x="14" y="9" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="17" y="9" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="9" width="1" height="1" fill="#524B65"></rect>
+              <rect x="19" y="9" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="9" width="2" height="1" fill="#524B65"></rect>
+              <rect x="24" y="9" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="25" y="9" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="6" y="10" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="8" y="10" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="9" y="10" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="10" y="10" width="3" height="1" fill="#524B65"></rect>
+              <rect x="13" y="10" width="4" height="1" fill="#2C233D"></rect>
+              <rect x="17" y="10" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="10" width="2" height="1" fill="#524B65"></rect>
+              <rect x="20" y="10" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="21" y="10" width="2" height="1" fill="#524B65"></rect>
+              <rect x="23" y="10" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="24" y="10" width="1" height="1" fill="#524B65"></rect>
+              <rect x="25" y="10" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="11" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="11" width="2" height="1" fill="#524B65"></rect>
+              <rect x="10" y="11" width="7" height="1" fill="#2C233D"></rect>
+              <rect x="17" y="11" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="11" width="6" height="1" fill="#524B65"></rect>
+              <rect x="24" y="11" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="6" y="12" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="8" y="12" width="2" height="1" fill="#524B65"></rect>
+              <rect x="10" y="12" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="12" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="12" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="12" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="12" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="12" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="20" y="12" width="3" height="1" fill="#524B65"></rect>
+              <rect x="23" y="12" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="24" y="12" width="2" height="1" fill="#524B65"></rect>
+              <rect x="26" y="12" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="5" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="6" y="13" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="9" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="10" y="13" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="13" y="13" width="3" height="1" fill="#524B65"></rect>
+              <rect x="16" y="13" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="13" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="13" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="20" y="13" width="3" height="1" fill="#524B65"></rect>
+              <rect x="23" y="13" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="25" y="13" width="1" height="1" fill="#524B65"></rect>
+              <rect x="26" y="13" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="27" y="13" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="4" y="14" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="5" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="6" y="14" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="7" y="14" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="14" width="3" height="1" fill="#524B65"></rect>
+              <rect x="11" y="14" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="12" y="14" width="6" height="1" fill="#524B65"></rect>
+              <rect x="18" y="14" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="20" y="14" width="3" height="1" fill="#524B65"></rect>
+              <rect x="23" y="14" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="25" y="14" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="26" y="14" width="1" height="1" fill="#524B65"></rect>
+              <rect x="27" y="14" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="5" y="15" width="1" height="1" fill="#524B65"></rect>
+              <rect x="6" y="15" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="15" width="6" height="1" fill="#524B65"></rect>
+              <rect x="13" y="15" width="2" height="1" fill="#191128"></rect>
+              <rect x="15" y="15" width="8" height="1" fill="#524B65"></rect>
+              <rect x="23" y="15" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="24" y="15" width="3" height="1" fill="#524B65"></rect>
+              <rect x="27" y="15" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="4" y="16" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="6" y="16" width="6" height="1" fill="#524B65"></rect>
+              <rect x="12" y="16" width="4" height="1" fill="#191128"></rect>
+              <rect x="16" y="16" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="17" y="16" width="9" height="1" fill="#524B65"></rect>
+              <rect x="26" y="16" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="27" y="16" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="5" y="17" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="7" y="17" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="17" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="10" y="17" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="17" width="2" height="1" fill="#191128"></rect>
+              <rect x="13" y="17" width="2" height="1" fill="#993700"></rect>
+              <rect x="15" y="17" width="2" height="1" fill="#191128"></rect>
+              <rect x="17" y="17" width="4" height="1" fill="#524B65"></rect>
+              <rect x="21" y="17" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="22" y="17" width="3" height="1" fill="#524B65"></rect>
+              <rect x="25" y="17" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="26" y="17" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="6" y="18" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="18" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="9" y="18" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="18" width="2" height="1" fill="#191128"></rect>
+              <rect x="13" y="18" width="2" height="1" fill="#993700"></rect>
+              <rect x="15" y="18" width="2" height="1" fill="#191128"></rect>
+              <rect x="17" y="18" width="3" height="1" fill="#524B65"></rect>
+              <rect x="20" y="18" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="21" y="18" width="2" height="1" fill="#524B65"></rect>
+              <rect x="23" y="18" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="24" y="18" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="25" y="18" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="9" y="19" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="11" y="19" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="12" y="19" width="3" height="1" fill="#191128"></rect>
+              <rect x="15" y="19" width="1" height="1" fill="#2C233D"></rect>
+              <rect x="16" y="19" width="1" height="1" fill="#524B65"></rect>
+              <rect x="17" y="19" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="18" y="19" width="1" height="1" fill="#524B65"></rect>
+              <rect x="19" y="19" width="3" height="1" fill="#2C233D"></rect>
+              <rect x="22" y="19" width="1" height="1" fill="#524B65"></rect>
+              <rect x="23" y="19" width="3" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="20" width="2" height="1" fill="#524B65"></rect>
+              <rect x="10" y="20" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="11" y="20" width="2" height="1" fill="#524B65"></rect>
+              <rect x="13" y="20" width="2" height="1" fill="#191128"></rect>
+              <rect x="15" y="20" width="1" height="1" fill="#524B65"></rect>
+              <rect x="16" y="20" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="20" width="2" height="1" fill="#524B65"></rect>
+              <rect x="19" y="20" width="2" height="1" fill="#2C233D"></rect>
+              <rect x="21" y="20" width="1" height="1" fill="#524B65"></rect>
+              <rect x="22" y="20" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="23" y="20" width="1" height="1" fill="#524B65"></rect>
+              <rect x="24" y="20" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="9" y="21" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="10" y="21" width="3" height="1" fill="#524B65"></rect>
+              <rect x="13" y="21" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="21" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="16" y="21" width="1" height="1" fill="#524B65"></rect>
+              <rect x="17" y="21" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="19" y="21" width="2" height="1" fill="#524B65"></rect>
+              <rect x="21" y="21" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="22" y="21" width="1" height="1" fill="#524B65"></rect>
+              <rect x="23" y="21" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="8" y="22" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="10" y="22" width="1" height="1" fill="#524B65"></rect>
+              <rect x="11" y="22" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="12" y="22" width="7" height="1" fill="#6B657A"></rect>
+              <rect x="19" y="22" width="1" height="1" fill="#524B65"></rect>
+              <rect x="20" y="22" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="21" y="22" width="2" height="1" fill="#524B65"></rect>
+              <rect x="23" y="22" width="2" height="1" fill="#6B657A"></rect>
+              <rect x="6" y="23" width="1" height="1" fill="#524B65"></rect>
+              <rect x="9" y="23" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="11" y="23" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="13" y="23" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="23" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="17" y="23" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="19" y="23" width="5" height="1" fill="#6B657A"></rect>
+              <rect x="20" y="24" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="22" y="24" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="25" y="24" width="1" height="1" fill="#524B65"></rect>
+              <rect x="9" y="25" width="1" height="1" fill="#524B65"></rect>
+              <rect x="19" y="26" width="1" height="1" fill="#524B65"></rect>
+              <rect x="14" y="27" width="1" height="1" fill="#524B65"></rect>
+              <rect x="8" y="28" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="23" y="28" width="1" height="1" fill="#524B65"></rect>
+              <rect x="16" y="29" width="1" height="1" fill="#524B65"></rect>
+              <rect x="26" y="29" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="11" y="30" width="1" height="1" fill="#524B65"></rect>
+              <rect x="21" y="30" width="1" height="1" fill="#6B657A"></rect>
+              <rect x="15" y="31" width="1" height="1" fill="#6B657A"></rect>
+            </svg>
+          </div>
+        </div>
+        <div class="balao-dica">
+          <button class="fechar-dica" id="fechar-dica" type="button" aria-label="Fechar dica">X</button>
+          <strong class="rotulo-triade" id="rotulo-triade"></strong>
+          <p class="fala-triade" id="fala-triade"></p>
+        </div>
+      </aside>
+
+      <section class="popup-fim" id="popup-fim" role="dialog" aria-modal="true" aria-labelledby="popup-rotulo" hidden>
+        <div class="popup-celula">
+          <strong class="popup-rotulo" id="popup-rotulo"></strong>
+          <h2 class="popup-resultado" id="popup-resultado"></h2>
+          <div class="popup-calculo" id="popup-calculo"></div>
+          <strong class="popup-pontos" id="popup-pontos"></strong>
+          <p class="popup-total" id="popup-total"></p>
+          <button class="popup-acao" id="popup-acao" type="button"></button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="rodape">
+      <div class="mensagem" id="mensagem" aria-live="polite"></div>
+      <div class="botoes-dica" aria-label="Controles da fase">
+        <button class="botao-dica" type="button" data-dica="case_" aria-controls="painel-dica" aria-expanded="false">Dica 1</button>
+        <button class="botao-dica" type="button" data-dica="rocky" aria-controls="painel-dica" aria-expanded="false">Dica 2</button>
+        <button class="botao-dica" type="button" data-dica="tars" aria-controls="painel-dica" aria-expanded="false">Dica 3</button>
+        <button class="botao-desistir" id="desistir" type="button">Desistir</button>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    // -----------------------------------------------------------------------
+    // DADOS DOS PUZZLES: a Onda 1 vive inteira fora da engine.
+    // -----------------------------------------------------------------------
+    const PUZZLE_P01 = {
+      id: "p01",
+      validacao: "direta",
+      concepts: [
+        { id: "animal", label: "Animal", fixo: true },
+        { id: "mamifero", label: "Mamífero", fixo: false },
+        { id: "peixe", label: "Peixe", fixo: false },
+        { id: "baleia", label: "Baleia", fixo: false },
+        { id: "golfinho", label: "Golfinho", fixo: false },
+        { id: "tubarao", label: "Tubarão", fixo: false },
+        { id: "sardinha", label: "Sardinha", fixo: false },
+      ],
+      solution: {
+        mamifero: { acceptedParents: ["animal"] },
+        peixe: { acceptedParents: ["animal"] },
+        baleia: { acceptedParents: ["mamifero"] },
+        golfinho: { acceptedParents: ["mamifero"] },
+        tubarao: { acceptedParents: ["peixe"] },
+        sardinha: { acceptedParents: ["peixe"] },
+      },
+      dicasTriade: {
+        case_: "Arraste e solte sobre o grupo certo. Duplo clique solta.",
+        rocky: "Dois grupos sob Animal. Óbvios primeiro, pegadinhas por último.",
+        tars: "Peixe respira água a vida toda. Mamífero respira ar e mama. Golfinho sobe pra respirar, isso o põe onde?",
+      },
+    };
+
+    const PUZZLE_P02 = {
+      id: "p02",
+      validacao: "ancestral",
+      concepts: [
+        { id: "numero", label: "Número", fixo: true },
+        { id: "texto", label: "Texto", fixo: true },
+        { id: "data", label: "Data", fixo: true },
+        { id: "numero_2", label: "2", fixo: false },
+        { id: "numero_40", label: "40", fixo: false },
+        { id: "texto_baleia", label: "Baleia", fixo: false },
+        { id: "texto_mamifero", label: "Mamífero", fixo: false },
+        { id: "data_1758", label: "1758", fixo: false },
+        { id: "data_terca_feira", label: "terça-feira", fixo: false },
+      ],
+      solution: {
+        numero_2: { acceptedParents: ["numero"] },
+        numero_40: { acceptedParents: ["numero"] },
+        texto_baleia: { acceptedParents: ["texto"] },
+        texto_mamifero: { acceptedParents: ["texto"] },
+        data_1758: { acceptedParents: ["data"] },
+        data_terca_feira: { acceptedParents: ["data"] },
+      },
+      dicasTriade: {
+        case_: "Cada dado vai pro seu tipo. Se errar, duplo clique e tenta de novo.",
+        rocky: "Três tipos, sem camada extra. Lê o dado: isso mede, nomeia, ou marca um tempo?",
+        tars: "Número mede quantidade, texto nomeia, data marca um ponto no tempo. E 1758, conta quantos, quem, ou quando?",
+      },
+    };
+
+    const PUZZLE_P03 = {
+      id: "p03",
+      validacao: "direta",
+      concepts: [
+        { id: "previsao", label: "Previsão", fixo: true },
+        { id: "comparacao", label: "Comparação", fixo: true },
+        { id: "conferencia", label: "Conferência", fixo: true },
+        { id: "conciliacao", label: "Conciliação", fixo: true },
+        { id: "baleias_ano_que_vem", label: "Quantas baleias no ano que vem?", fixo: false },
+        { id: "baleia_maior_tubarao", label: "A baleia é maior que o tubarão?", fixo: false },
+        { id: "recontar_baleias", label: "Recontar se são 2 baleias mesmo", fixo: false },
+        { id: "lista_registro_museu", label: "Bater nossa lista com o registro do museu", fixo: false },
+        { id: "soma_pesos_relatorio", label: "Ver se a soma dos pesos bate com o total do relatório", fixo: false },
+      ],
+      solution: {
+        baleias_ano_que_vem: { acceptedParents: ["previsao"] },
+        baleia_maior_tubarao: { acceptedParents: ["comparacao"] },
+        recontar_baleias: { acceptedParents: ["conferencia"] },
+        lista_registro_museu: { acceptedParents: ["conciliacao"] },
+        soma_pesos_relatorio: { acceptedParents: ["conciliacao"] },
+      },
+      dicasTriade: {
+        case_: "Cada tarefa vai pro tipo de análise dela.",
+        rocky: "Olha o verbo de cada frase: prever, comparar, conferir, ou bater dois registros.",
+        tars: "Conferência olha um dado contra ele mesmo. Conciliação cruza DOIS registros diferentes até fecharem. A pegadinha cruza dois?",
+      },
+    };
+
+    const PUZZLE_P04 = {
+      id: "p04",
+      validacao: "direta",
+      concepts: [
+        { id: "fato", label: "Fato", fixo: true },
+        { id: "opiniao", label: "Opinião", fixo: true },
+        { id: "inverno_dias_curtos", label: "O inverno tem os dias mais curtos do ano", fixo: false },
+        { id: "chuva_alaga_rua", label: "Chuva forte alaga rua sem bueiro", fixo: false },
+        { id: "calor_equador", label: "Faz mais calor perto do Equador", fixo: false },
+        { id: "pior_clima", label: "Chuva é o pior clima", fixo: false },
+        { id: "sol_dia_feliz", label: "Todo dia de sol é um dia feliz", fixo: false },
+      ],
+      solution: {
+        inverno_dias_curtos: { acceptedParents: ["fato"] },
+        chuva_alaga_rua: { acceptedParents: ["fato"] },
+        calor_equador: { acceptedParents: ["fato"] },
+        pior_clima: { acceptedParents: ["opiniao"] },
+        sol_dia_feliz: { acceptedParents: ["opiniao"] },
+      },
+      dicasTriade: {
+        case_: "As frases vão sob Fato ou Opinião.",
+        rocky: "Duas caixas. O trabalho é ler a frase antes de soltar.",
+        tars: "Fato se mede no mundo. 'Pior', 'feliz', 'melhor' é medida de quem fala. 'Mais calor perto do Equador' dá pra medir?",
+      },
+    };
+
+    const PUZZLE_P05 = {
+      id: "p05",
+      validacao: "direta",
+      concepts: [
+        { id: "consequencia", label: "Consequência", fixo: true },
+        { id: "alagou", label: "A rua alagou", fixo: false },
+        { id: "escoou", label: "A chuva não escoou", fixo: false },
+        { id: "bueiros", label: "Os bueiros estavam entupidos", fixo: false },
+        { id: "limpou", label: "Ninguém limpou antes da chuva", fixo: false },
+        { id: "calendario", label: "Não há calendário de manutenção", selo: "CAUSA RAIZ", fixo: false },
+      ],
+      solution: {
+        alagou: { acceptedParents: ["consequencia"] },
+        escoou: { acceptedParents: ["alagou"] },
+        bueiros: { acceptedParents: ["escoou"] },
+        limpou: { acceptedParents: ["bueiros"] },
+        calendario: { acceptedParents: ["limpou"] },
+      },
+      dicasTriade: {
+        case_: "Monte a corrente de cima pra baixo: cada caixa é o porque da de cima.",
+        rocky: "Comece ligando 'A rua alagou' na Consequência. Cada degrau responde por quê da anterior.",
+        tars: "A causa raiz é a única sem outro porque atrás. Cava até a resposta virar um problema de processo, não de azar.",
+      },
+    };
+
+    const PUZZLE_P06 = {
+      id: "p06",
+      validacao: "direta",
+      concepts: [
+        { id: "regra", label: "Regra", fixo: true },
+        { id: "piso", label: "Piso epistêmico", fixo: true },
+        { id: "dirigir_direita", label: "Dirigir pela direita da via", fixo: false },
+        { id: "vermelho_sexta", label: "Nunca uso vermelho na sexta-feira", fixo: false },
+        { id: "conferir_memoria", label: "Conferir o memória.md antes de continuar o projeto", fixo: false },
+        { id: "ponto_frase", label: "Pôr ponto no fim de cada frase", fixo: false },
+        { id: "intuicao_avo", label: "A intuição da minha avó acerta o tempo, falhou se ela errar a chuva 3 vezes seguidas", fixo: false },
+        { id: "pressao_ar", label: "A pressão do ar caindo indica chuva, falhou se chover com pressão alta", fixo: false },
+        { id: "fermento_bolo", label: "Fermento novo faz o bolo crescer mais, falhou se o de fermento velho crescer igual", fixo: false },
+        { id: "numero_redondo", label: "Sempre desconfiar de número redondo demais", fixo: false },
+      ],
+      solution: {
+        dirigir_direita: { acceptedParents: ["regra"] },
+        vermelho_sexta: { acceptedParents: ["regra"] },
+        conferir_memoria: { acceptedParents: ["regra"] },
+        ponto_frase: { acceptedParents: ["regra"] },
+        intuicao_avo: { acceptedParents: ["piso"] },
+        pressao_ar: { acceptedParents: ["piso"] },
+        fermento_bolo: { acceptedParents: ["piso"] },
+        numero_redondo: { acceptedParents: ["regra"] },
+      },
+      dicasTriade: {
+        case_: "Cada frase vai sob Regra ou Piso.",
+        rocky: "Procura o 'falhou se'. Tem? é piso. É só uma norma pra obedecer? é regra.",
+        tars: "Regra é uma decisão: você obedece. Piso é uma afirmação que pode estar errada, e já disse COMO você saberia. Cadê o 'falhou se'?",
+      },
+    };
+
+    const PUZZLE_P07 = {
+      id: "p07",
+      validacao: "direta",
+      concepts: [
+        { id: "manual", label: "Manual", fixo: true },
+        { id: "informacao", label: "Informação", fixo: true },
+        { id: "apertar_botao", label: "Aperte o botão para ligar", fixo: false },
+        { id: "regar_planta", label: "Regue a planta duas vezes por semana", fixo: false },
+        { id: "responder_email", label: "Responder o e-mail em até 24h", fixo: false },
+        { id: "nao_pisar_grama", label: "Não pisar na grama", fixo: false },
+        { id: "agua_ferve", label: "A água ferve a 100°C", fixo: false },
+        { id: "loja_abre", label: "A loja abre às 9h", fixo: false },
+        { id: "gato_mamifero", label: "O gato é um mamífero", fixo: false },
+      ],
+      solution: {
+        apertar_botao: { acceptedParents: ["manual"] },
+        regar_planta: { acceptedParents: ["manual"] },
+        responder_email: { acceptedParents: ["manual"] },
+        nao_pisar_grama: { acceptedParents: ["manual"] },
+        agua_ferve: { acceptedParents: ["informacao"] },
+        loja_abre: { acceptedParents: ["informacao"] },
+        gato_mamifero: { acceptedParents: ["informacao"] },
+      },
+      dicasTriade: {
+        case_: "Cada frase vai sob Manual ou Informação.",
+        rocky: "Pergunta: isso me DIZ COMO agir (manual), ou me conta O QUE É (informação)?",
+        tars: "Manual instrui uma ação. Informação descreve o mundo. 'Não pisar na grama' te manda fazer algo, ou só conta um fato?",
+      },
+    };
+
+    const PUZZLES = [
+      PUZZLE_P01,
+      PUZZLE_P02,
+      PUZZLE_P03,
+      PUZZLE_P04,
+      PUZZLE_P05,
+      PUZZLE_P06,
+      PUZZLE_P07,
+    ];
+
+    const TEMAS = {
+      escuro: {
+        bg:         "#06050B",
+        painel:     "#17141D",
+        ink:        "#E9E6F1",
+        linha:      "#7D6EB0",
+        ditherDots: ["#E0CCFF", "#C8A2FF", "#B57BFF"],
+        noFixo:     "#B57BFF",
+        noNeutro:   "#393642",
+        noOk:       "#C8A2FF",
+        noErro:     "#FF8A5C",
+        inkNo:      "#0B0910",
+        selecaoNo:  "rgba(255,138,92,0.30)",
+      },
+      claro: {
+        bg:         "#E7DCD0",
+        painel:     "#F4EBE2",
+        ink:        "#2C233D",
+        linha:      "#8A8794",
+        ditherDots: ["#642DA4", "#605875", "#993700"],
+        noFixo:     "#642DA4",
+        noNeutro:   "#CBB9A6",
+        noOk:       "#642DA4",
+        noErro:     "#993700",
+        inkNo:      "#F4EBE2",
+        selecaoNo:  "rgba(153,55,0,0.18)",
+      },
+    };
+
+    // -----------------------------------------------------------------------
+    // CONSTANTES VISUAIS: o desenho lógico usa coordenadas inteiras.
+    // -----------------------------------------------------------------------
+    const W = 960;
+    const H = 600;
+    const CELL = 12;
+    const DENSIDADE = 0.85;
+    const FOLGA_SOBREPOSICAO = 8;
+    const CICLO_DITHER_MS = 6000;
+    const MOVIMENTO_REDUZIDO = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const PASSO_PONTILHADO = 4;
+    const TAMANHO_PONTO = 2;
+    const BORDA_NO = 2;
+    const FONTE_NO_PX = 14;
+    const NO_MIN_LARGURA = 120;
+    const NO_MIN_ALTURA = 46;
+    const NO_LARGURA_MAX = 260;
+    const NO_PAD_X = 12;
+    const NO_PAD_Y = 10;
+    const NO_LINHA_ALTURA = 18;
+    const SELO_FONTE_PX = 11;
+    const SELO_LINHA_ALTURA = 13;
+    const SELO_GAP = 3;
+    const SELO_PAD_X = 6;
+    const AUTO_MARGEM_X = 24;
+    const AUTO_MARGEM_INFERIOR = 24;
+    const AUTO_CATEGORIA_Y = 60;
+    const AUTO_CATEGORIA_GAP = 24;
+    const AUTO_PECA_Y_PREFERIDO = 360;
+    const AUTO_PECA_GAP = 16;
+    const AUTO_FOLGA_BLOCOS = 32;
+    const LIMITE_DUPLO_CLIQUE_MS = 350;
+    const TOLERANCIA_ENCAIXE = 20;
+    const TEMPO_DICA_MS = 15000;
+    const DURACAO_FECHAMENTO_DICA_MS = 180;
+    const ARVORE_Y_BASE = 60;
+    const ARVORE_PASSO_NIVEL = 150;
+    const ARVORE_ESPACO_IRMAOS = 40;
+    const ARVORE_ESPACO_NIVEIS_MIN = 16;
+    const PONTOS_BASE = 100;
+    const PENALIDADE_DICA = 20;
+    const DURACAO_BRILHO_MS = 2400;
+    const INTERVALO_SWEEP_MS = 1200;
+    const CONFIG_TRIADE = Object.freeze({
+      case_: { rotulo: "//CASE_" },
+      rocky: { rotulo: "//ROCKY_" },
+      tars:  { rotulo: "//TARS_" },
+    });
+    const BAYER = [
+      [0, 8, 2, 10],
+      [12, 4, 14, 6],
+      [3, 11, 1, 9],
+      [15, 7, 13, 5],
+    ];
+
+    let TEMA_ATUAL = "escuro";
+
+    function deepFreeze(valor) {
+      if (valor && typeof valor === "object" && !Object.isFrozen(valor)) {
+        for (const chave of Object.keys(valor)) deepFreeze(valor[chave]);
+        Object.freeze(valor);
+      }
+      return valor;
+    }
+
+    deepFreeze(PUZZLES);
+    deepFreeze(TEMAS);
+    let PUZZLE = PUZZLES[0];
+
+    function clamp(valor, minimo, maximo) {
+      return Math.max(minimo, Math.min(maximo, valor));
+    }
+
+    function configurarFonteNos(contexto) {
+      contexto.font = `700 ${FONTE_NO_PX}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+    }
+
+    function configurarFonteSelo(contexto) {
+      contexto.font = `700 ${SELO_FONTE_PX}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+    }
+
+    function quebrarPalavraLonga(contexto, palavra, larguraUtil) {
+      const fragmentos = [];
+      let fragmento = "";
+      for (const caractere of Array.from(palavra)) {
+        const candidato = fragmento + caractere;
+        if (fragmento && contexto.measureText(candidato).width > larguraUtil) {
+          fragmentos.push(fragmento);
+          fragmento = caractere;
+        } else {
+          fragmento = candidato;
+        }
+      }
+      if (fragmento) fragmentos.push(fragmento);
+      return fragmentos;
+    }
+
+    function quebrarLabelEmLinhas(contexto, label) {
+      const larguraUtil = NO_LARGURA_MAX - 2 * NO_PAD_X;
+      const palavras = label.trim().split(/\s+/).filter(Boolean);
+      if (!palavras.length) return [""];
+
+      const linhas = [];
+      let linhaAtual = "";
+      for (const palavra of palavras) {
+        if (contexto.measureText(palavra).width > larguraUtil) {
+          if (linhaAtual) {
+            linhas.push(linhaAtual);
+            linhaAtual = "";
+          }
+          const fragmentos = quebrarPalavraLonga(contexto, palavra, larguraUtil);
+          linhas.push(...fragmentos.slice(0, -1));
+          linhaAtual = fragmentos.at(-1) || "";
+          continue;
+        }
+
+        const candidata = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
+        if (linhaAtual && contexto.measureText(candidata).width > larguraUtil) {
+          linhas.push(linhaAtual);
+          linhaAtual = palavra;
+        } else {
+          linhaAtual = candidata;
+        }
+      }
+      if (linhaAtual || !linhas.length) linhas.push(linhaAtual);
+      return linhas;
+    }
+
+    function calcularVisaoConcept(contexto, concept) {
+      const minLargura = Math.ceil(concept.width ?? NO_MIN_LARGURA);
+      const minAltura = Math.ceil(concept.height ?? NO_MIN_ALTURA);
+      assertBoot(Number.isFinite(minLargura) && minLargura > 0, `largura mínima inválida em ${concept.id}`);
+      assertBoot(Number.isFinite(minAltura) && minAltura > 0, `altura mínima inválida em ${concept.id}`);
+      assertBoot(
+        minLargura <= NO_LARGURA_MAX,
+        `largura mínima de ${concept.id} (${minLargura}) excede NO_LARGURA_MAX (${NO_LARGURA_MAX})`,
+      );
+
+      configurarFonteNos(contexto);
+      const linhas = quebrarLabelEmLinhas(contexto, concept.label);
+      const larguraConteudo = Math.max(...linhas.map((linha) => contexto.measureText(linha).width));
+      const seloTexto = typeof concept.selo === "string" && concept.selo.trim()
+        ? concept.selo.toLocaleUpperCase("pt-BR")
+        : null;
+      let larguraSelo = 0;
+      let boxOffsetY = 0;
+      if (seloTexto) {
+        configurarFonteSelo(contexto);
+        larguraSelo = contexto.measureText(seloTexto).width + 2 * SELO_PAD_X;
+        assertBoot(
+          larguraSelo <= NO_LARGURA_MAX,
+          `selo de ${concept.id} excede NO_LARGURA_MAX`,
+        );
+        boxOffsetY = SELO_LINHA_ALTURA + SELO_GAP;
+      }
+      configurarFonteNos(contexto);
+      const width = Math.ceil(clamp(
+        Math.max(larguraConteudo + 2 * NO_PAD_X, larguraSelo),
+        minLargura,
+        NO_LARGURA_MAX,
+      ));
+      const boxHeight = Math.ceil(Math.max(minAltura, linhas.length * NO_LINHA_ALTURA + 2 * NO_PAD_Y));
+      const height = boxOffsetY + boxHeight;
+      return Object.freeze({
+        width,
+        height,
+        boxOffsetY,
+        boxHeight,
+        seloTexto,
+        linhas: Object.freeze([...linhas]),
+      });
+    }
+
+    function calcularVisaoPuzzle(contexto, puzzle) {
+      return Object.freeze(Object.fromEntries(
+        puzzle.concepts.map((concept) => [concept.id, calcularVisaoConcept(contexto, concept)]),
+      ));
+    }
+
+    function sementeDoPuzzle(puzzle) {
+      let hash = 2166136261;
+      for (const caractere of puzzle.id) {
+        hash ^= caractere.codePointAt(0);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    }
+
+    function criarPrng(semente) {
+      let estado = semente >>> 0;
+      return () => {
+        estado = (estado + 0x6D2B79F5) >>> 0;
+        let valor = estado;
+        valor = Math.imul(valor ^ (valor >>> 15), valor | 1);
+        valor ^= valor + Math.imul(valor ^ (valor >>> 7), valor | 61);
+        return ((valor ^ (valor >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function embaralharComSemente(itens, semente) {
+      const resultado = [...itens];
+      const aleatorio = criarPrng(semente);
+      for (let i = resultado.length - 1; i > 0; i--) {
+        const j = Math.floor(aleatorio() * (i + 1));
+        [resultado[i], resultado[j]] = [resultado[j], resultado[i]];
+      }
+      return resultado;
+    }
+
+    function categoriaResposta(puzzle, concept) {
+      return puzzle.solution[concept.id].acceptedParents[0];
+    }
+
+    function ordenarPecasIniciais(puzzle) {
+      const pecas = puzzle.concepts.filter((concept) => !concept.fixo);
+      const base = embaralharComSemente(pecas, sementeDoPuzzle(puzzle));
+      const baldes = new Map();
+      const prioridade = new Map();
+      for (const concept of base) {
+        const categoria = categoriaResposta(puzzle, concept);
+        if (!baldes.has(categoria)) {
+          baldes.set(categoria, []);
+          prioridade.set(categoria, prioridade.size);
+        }
+        baldes.get(categoria).push(concept);
+      }
+
+      const resultado = [];
+      let categoriaAnterior = null;
+      while (resultado.length < base.length) {
+        let candidatas = [...baldes.keys()].filter(
+          (categoria) => baldes.get(categoria).length && categoria !== categoriaAnterior,
+        );
+        if (!candidatas.length) {
+          candidatas = [...baldes.keys()].filter((categoria) => baldes.get(categoria).length);
+        }
+        candidatas.sort((a, b) => (
+          baldes.get(b).length - baldes.get(a).length
+          || prioridade.get(a) - prioridade.get(b)
+        ));
+        const escolhida = candidatas[0];
+        resultado.push(baldes.get(escolhida).shift());
+        categoriaAnterior = escolhida;
+      }
+      return resultado;
+    }
+
+    function contarAdjacenciasDeResposta(puzzle, pecas) {
+      let total = 0;
+      for (let i = 1; i < pecas.length; i++) {
+        if (categoriaResposta(puzzle, pecas[i - 1]) === categoriaResposta(puzzle, pecas[i])) total++;
+      }
+      return total;
+    }
+
+    function minimoTeoricoAdjacencias(puzzle) {
+      const contagens = new Map();
+      const pecas = puzzle.concepts.filter((concept) => !concept.fixo);
+      for (const concept of pecas) {
+        const categoria = categoriaResposta(puzzle, concept);
+        contagens.set(categoria, (contagens.get(categoria) || 0) + 1);
+      }
+      const maiorGrupo = Math.max(0, ...contagens.values());
+      return Math.max(0, maiorGrupo - (pecas.length - maiorGrupo) - 1);
+    }
+
+    function empacotarLinhas(concepts, visaoPuzzle, gap) {
+      const larguraUtil = W - 2 * AUTO_MARGEM_X;
+      const linhas = [];
+      let atual = { itens: [], width: 0, height: 0 };
+
+      for (const concept of concepts) {
+        const dimensao = visaoPuzzle[concept.id];
+        assertBoot(dimensao.width <= larguraUtil, `nó ${concept.id} não cabe na largura útil inicial`);
+        const larguraComItem = atual.itens.length
+          ? atual.width + gap + dimensao.width
+          : dimensao.width;
+        if (atual.itens.length && larguraComItem > larguraUtil) {
+          linhas.push(atual);
+          atual = { itens: [], width: 0, height: 0 };
+        }
+        atual.itens.push({ concept, dimensao });
+        atual.width = atual.itens.length === 1
+          ? dimensao.width
+          : atual.width + gap + dimensao.width;
+        atual.height = Math.max(atual.height, dimensao.height);
+      }
+      if (atual.itens.length) linhas.push(atual);
+      return linhas;
+    }
+
+    function alturaDasLinhas(linhas, gap) {
+      return linhas.reduce((total, linha) => total + linha.height, 0)
+        + gap * Math.max(0, linhas.length - 1);
+    }
+
+    function posicionarLinha(linha, y, gap, centralizar, positions) {
+      let x = centralizar
+        ? Math.round((W - linha.width) / 2)
+        : AUTO_MARGEM_X;
+      for (const item of linha.itens) {
+        positions[item.concept.id] = {
+          x: clamp(Math.round(x), 0, W - item.dimensao.width),
+          y: clamp(Math.round(y), 0, H - item.dimensao.height),
+        };
+        x += item.dimensao.width + gap;
+      }
+    }
+
+    // Layout inicial puro: categorias no topo e peças empacotadas embaixo.
+    function calcularPosicoesIniciais(puzzle, visaoPuzzle) {
+      const positions = {};
+      const categorias = puzzle.concepts.filter((concept) => concept.fixo);
+      const pecas = ordenarPecasIniciais(puzzle);
+      const linhasCategorias = empacotarLinhas(categorias, visaoPuzzle, AUTO_CATEGORIA_GAP);
+      assertBoot(linhasCategorias.length <= 2, `${puzzle.id} exige mais de duas linhas de categorias`);
+
+      let yCategorias = AUTO_CATEGORIA_Y;
+      let fimCategorias = AUTO_CATEGORIA_Y;
+      for (const linha of linhasCategorias) {
+        posicionarLinha(linha, yCategorias, AUTO_CATEGORIA_GAP, true, positions);
+        fimCategorias = yCategorias + linha.height;
+        yCategorias += linha.height + AUTO_CATEGORIA_GAP;
+      }
+
+      const linhasPecas = empacotarLinhas(pecas, visaoPuzzle, AUTO_PECA_GAP);
+      const alturaPecas = alturaDasLinhas(linhasPecas, AUTO_PECA_GAP);
+      const inicioMinimo = fimCategorias + AUTO_FOLGA_BLOCOS;
+      const inicioMaximo = H - AUTO_MARGEM_INFERIOR - alturaPecas;
+      assertBoot(
+        inicioMaximo >= inicioMinimo,
+        `${puzzle.id} não cabe entre as categorias e a margem inferior`,
+      );
+      let yPecas = clamp(AUTO_PECA_Y_PREFERIDO, inicioMinimo, inicioMaximo);
+      for (const linha of linhasPecas) {
+        posicionarLinha(linha, yPecas, AUTO_PECA_GAP, false, positions);
+        yPecas += linha.height + AUTO_PECA_GAP;
+      }
+
+      return positions;
+    }
+
+    function calcularPontosDaFase(estado) {
+      return estado.desistiu
+        ? 0
+        : Math.max(0, PONTOS_BASE - PENALIDADE_DICA * estado.dicasGastas);
+    }
+
+    function centro(no) {
+      return {
+        x: no.x + no.width / 2,
+        y: no.y + no.height / 2,
+      };
+    }
+
+    function retanguloCaixaNo(no) {
+      return {
+        x: no.x,
+        y: no.y + (no.boxOffsetY || 0),
+        width: no.width,
+        height: no.boxHeight ?? no.height,
+      };
+    }
+
+    // Decide bordas e rota usando o eixo dominante entre os centros.
+    function ancorasConexao(pai, filho) {
+      const caixaPai = retanguloCaixaNo(pai);
+      const caixaFilho = retanguloCaixaNo(filho);
+      const centroPai = centro(caixaPai);
+      const centroFilho = centro(caixaFilho);
+      const dx = centroFilho.x - centroPai.x;
+      const dy = centroFilho.y - centroPai.y;
+
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        const paraBaixo = dy >= 0;
+        const saida = {
+          x: centroPai.x | 0,
+          y: (paraBaixo ? caixaPai.y + caixaPai.height : caixaPai.y) | 0,
+        };
+        const entrada = {
+          x: centroFilho.x | 0,
+          y: (paraBaixo ? caixaFilho.y : caixaFilho.y + caixaFilho.height) | 0,
+        };
+        return {
+          dominante: "vertical",
+          saida,
+          entrada,
+          junction: ((saida.y + entrada.y) / 2) | 0,
+          direcaoEntrada: { x: 0, y: paraBaixo ? 1 : -1 },
+        };
+      }
+
+      const paraDireita = dx >= 0;
+      const saida = {
+        x: (paraDireita ? caixaPai.x + caixaPai.width : caixaPai.x) | 0,
+        y: centroPai.y | 0,
+      };
+      const entrada = {
+        x: (paraDireita ? caixaFilho.x : caixaFilho.x + caixaFilho.width) | 0,
+        y: centroFilho.y | 0,
+      };
+      return {
+        dominante: "horizontal",
+        saida,
+        entrada,
+        junction: ((saida.x + entrada.x) / 2) | 0,
+        direcaoEntrada: { x: paraDireita ? 1 : -1, y: 0 },
+      };
+    }
+
+    // Relatório de validação: informa estado individual, completude e dica.
+    function validar(puzzle, placements) {
+      const porNo = {};
+      const modo = puzzle.validacao || "direta";
+      for (const c of puzzle.concepts) {
+        if (c.fixo) {
+          porNo[c.id] = "ok";
+          continue;
+        }
+        const pai = placements[c.id];
+        if (pai == null) {
+          porNo[c.id] = "neutro";
+          continue;
+        }
+
+        const aceitos = puzzle.solution[c.id].acceptedParents;
+        if (modo === "direta") {
+          porNo[c.id] = aceitos.includes(pai) ? "ok" : "erro";
+          continue;
+        }
+
+        let atual = pai;
+        let encontrou = false;
+        const visitados = new Set();
+        while (atual != null && !visitados.has(atual)) {
+          if (aceitos.includes(atual)) {
+            encontrou = true;
+            break;
+          }
+          visitados.add(atual);
+          atual = placements[atual];
+        }
+        porNo[c.id] = encontrou ? "ok" : "erro";
+      }
+
+      const completo = puzzle.concepts.every((c) => porNo[c.id] === "ok");
+      let proximaDica = null;
+      const primeiroErro = puzzle.concepts.find((c) => porNo[c.id] === "erro");
+      const primeiroNeutro = puzzle.concepts.find((c) => porNo[c.id] === "neutro");
+      if (primeiroErro) proximaDica = "Algum conceito esta no grupo errado. Use uma dica se precisar.";
+      else if (primeiroNeutro) proximaDica = "Falta encaixar: " + primeiroNeutro.label;
+      return { completo, porNo, proximaDica };
+    }
+
+    // Aplica a primeira solução aceita e deriva um layout BFS sem armazenar árvore aninhada.
+    function aplicarSolucaoELayout(puzzle, estado, visaoPuzzle) {
+      const porId = new Map(puzzle.concepts.map((concept) => [
+        concept.id,
+        { ...concept, ...visaoPuzzle[concept.id] },
+      ]));
+      for (const [id, regra] of Object.entries(puzzle.solution)) {
+        if (!regra.acceptedParents.length) throw new Error(`Solução sem pai aceito para ${id}`);
+        estado.placements[id] = regra.acceptedParents[0];
+      }
+
+      const filhosPorPai = new Map();
+      const idsComPai = new Set();
+      for (const concept of puzzle.concepts) filhosPorPai.set(concept.id, []);
+      for (const concept of puzzle.concepts) {
+        const paiId = estado.placements[concept.id];
+        if (paiId == null) continue;
+        idsComPai.add(concept.id);
+        if (!filhosPorPai.has(paiId)) filhosPorPai.set(paiId, []);
+        filhosPorPai.get(paiId).push(concept.id);
+      }
+
+      const raizes = puzzle.concepts.filter((concept) => !idsComPai.has(concept.id));
+      const profundidade = new Map(raizes.map((raiz) => [raiz.id, 0]));
+      const filaProfundidade = raizes.map((raiz) => raiz.id);
+      while (filaProfundidade.length) {
+        const paiId = filaProfundidade.shift();
+        const nivelFilhos = profundidade.get(paiId) + 1;
+        for (const filhoId of filhosPorPai.get(paiId) || []) {
+          if (profundidade.has(filhoId)) continue;
+          profundidade.set(filhoId, nivelFilhos);
+          filaProfundidade.push(filhoId);
+        }
+      }
+
+      const nivelMaximo = Math.max(0, ...profundidade.values());
+      const alturaPorNivel = new Map();
+      for (const [id, nivel] of profundidade) {
+        const no = porId.get(id);
+        alturaPorNivel.set(nivel, Math.max(alturaPorNivel.get(nivel) || 0, no.height));
+      }
+      const fundoRaizes = Math.max(...raizes.map((raiz) => (
+        estado.positions[raiz.id].y + porId.get(raiz.id).height
+      )));
+      const somaAlturasFilhos = [...alturaPorNivel.entries()]
+        .filter(([nivel]) => nivel > 0)
+        .reduce((total, [, altura]) => total + altura, 0);
+      const espacoDisponivel = H - fundoRaizes - somaAlturasFilhos;
+      const gapIdeal = Math.max(
+        ARVORE_ESPACO_NIVEIS_MIN,
+        ARVORE_PASSO_NIVEL - Math.max(...alturaPorNivel.values()),
+      );
+      const gapNivel = nivelMaximo
+        ? clamp(Math.floor(espacoDisponivel / nivelMaximo), ARVORE_ESPACO_NIVEIS_MIN, gapIdeal)
+        : 0;
+      const yPorNivel = new Map([[0, ARVORE_Y_BASE]]);
+      let cursorY = fundoRaizes;
+      for (let nivel = 1; nivel <= nivelMaximo; nivel++) {
+        cursorY += gapNivel;
+        yPorNivel.set(nivel, cursorY);
+        cursorY += alturaPorNivel.get(nivel);
+      }
+
+      const fila = raizes.map((raiz) => ({ id: raiz.id, nivel: 0 }));
+      const visitados = new Set();
+
+      while (fila.length) {
+        const atual = fila.shift();
+        if (visitados.has(atual.id)) continue;
+        visitados.add(atual.id);
+
+        const pai = porId.get(atual.id);
+        const posPai = estado.positions[atual.id];
+        const filhos = (filhosPorPai.get(atual.id) || [])
+          .filter((id) => !visitados.has(id))
+          .map((id) => porId.get(id));
+        if (!pai || !posPai || !filhos.length) continue;
+
+        const larguraGrupo = filhos.reduce((total, filho) => total + filho.width, 0)
+          + ARVORE_ESPACO_IRMAOS * Math.max(0, filhos.length - 1);
+        const centroPaiX = posPai.x + pai.width / 2;
+        let cursorX = Math.round(centroPaiX - larguraGrupo / 2);
+        if (larguraGrupo <= W) cursorX = clamp(cursorX, 0, W - larguraGrupo);
+
+        const nivelFilhos = atual.nivel + 1;
+        for (const filho of filhos) {
+          estado.positions[filho.id] = {
+            x: clamp(Math.round(cursorX), 0, W - filho.width),
+            y: clamp(yPorNivel.get(nivelFilhos), 0, H - filho.height),
+          };
+          cursorX += filho.width + ARVORE_ESPACO_IRMAOS;
+          fila.push({ id: filho.id, nivel: nivelFilhos });
+        }
+      }
+    }
+
+    function assertBoot(condicao, mensagem) {
+      if (!condicao) throw new Error("BOOT TEST: " + mensagem);
+    }
+
+    function pontoNaBorda(no, ponto) {
+      const dentro = ponto.x >= no.x && ponto.x <= no.x + no.width
+        && ponto.y >= no.y && ponto.y <= no.y + no.height;
+      const naBorda = ponto.x === no.x || ponto.x === no.x + no.width
+        || ponto.y === no.y || ponto.y === no.y + no.height;
+      return dentro && naBorda;
+    }
+
+    // BOOT TEST: os oito grupos rodam sobre cada puzzle cadastrado.
+    function executarBootTestPuzzle(PUZZLE, visaoPuzzle) {
+      assertBoot(
+        PUZZLE.validacao === "direta" || PUZZLE.validacao === "ancestral",
+        `${PUZZLE.id} tem modo de validação inválido`,
+      );
+      assertBoot(
+        (PUZZLE.id === "p02") === (PUZZLE.validacao === "ancestral"),
+        "somente o P02 deve usar validação ancestral",
+      );
+      const ids = new Set(PUZZLE.concepts.map((c) => c.id));
+      assertBoot(ids.size === PUZZLE.concepts.length, `${PUZZLE.id} tem id de concept duplicado`);
+      const estadoInicial = {};
+      for (const c of PUZZLE.concepts) {
+        assertBoot(
+          !("x" in c) && !("y" in c) && !("width" in c) && !("height" in c),
+          `${PUZZLE.id}.${c.id} deve deixar posição e tamanho para o runtime`,
+        );
+        if (!c.fixo) estadoInicial[c.id] = null;
+      }
+
+      for (const id of Object.keys(PUZZLE.solution)) {
+        assertBoot(ids.has(id), `solution referencia conceito inexistente: ${id}`);
+      }
+
+      for (const concept of PUZZLE.concepts.filter((c) => !c.fixo)) {
+        const regra = PUZZLE.solution[concept.id];
+        assertBoot(regra && Array.isArray(regra.acceptedParents), `${concept.id} não tem acceptedParents`);
+        assertBoot(
+          regra.acceptedParents.length === 1,
+          `${concept.id} deve ter exatamente um acceptedParents`,
+        );
+        assertBoot(
+          ids.has(regra.acceptedParents[0]),
+          `acceptedParents de ${concept.id} referencia concept inexistente: ${regra.acceptedParents[0]}`,
+        );
+      }
+
+      for (const [id, pai] of Object.entries(estadoInicial)) {
+        assertBoot(id !== pai, `o conceito ${id} começa como pai de si mesmo`);
+      }
+
+      const inicial = validar(PUZZLE, estadoInicial);
+      assertBoot(inicial.completo === false, "o estado inicial não pode estar completo");
+      assertBoot(
+        PUZZLE.concepts.every((c) => c.fixo ? inicial.porNo[c.id] === "ok" : inicial.porNo[c.id] === "neutro"),
+        "o estado inicial deve ter apenas o root ok e os demais nós neutros",
+      );
+
+      const solucaoCorreta = {};
+      for (const [id, regra] of Object.entries(PUZZLE.solution)) {
+        solucaoCorreta[id] = regra.acceptedParents[0];
+      }
+      assertBoot(validar(PUZZLE, solucaoCorreta).completo === true, "a solução declarada não completa o puzzle");
+
+      const paiTeste = { id: "animal", x: 100, y: 100, width: 120, height: 46 };
+      const filhoVertical = { id: "mamifero", x: 120, y: 300, width: 120, height: 46 };
+      const filhoHorizontal = { id: "peixe", x: 400, y: 110, width: 120, height: 46 };
+      const vertical = ancorasConexao(paiTeste, filhoVertical);
+      const horizontal = ancorasConexao(paiTeste, filhoHorizontal);
+      assertBoot(vertical.dominante === "vertical", "caso vertical não escolheu eixo vertical");
+      assertBoot(
+        pontoNaBorda(paiTeste, vertical.saida) && pontoNaBorda(filhoVertical, vertical.entrada),
+        "âncoras verticais não estão nas bordas esperadas",
+      );
+      assertBoot(horizontal.dominante === "horizontal", "caso horizontal não escolheu eixo horizontal");
+      assertBoot(
+        pontoNaBorda(paiTeste, horizontal.saida) && pontoNaBorda(filhoHorizontal, horizontal.entrada),
+        "âncoras horizontais não estão nas bordas esperadas",
+      );
+
+      assertBoot(
+        PUZZLE.dicasTriade && typeof PUZZLE.dicasTriade === "object",
+        "dicasTriade deve existir no PUZZLE",
+      );
+      for (const chave of ["case_", "rocky", "tars"]) {
+        assertBoot(
+          typeof PUZZLE.dicasTriade[chave] === "string" && PUZZLE.dicasTriade[chave].trim().length > 0,
+          `dicasTriade.${chave} deve ser uma string não vazia`,
+        );
+      }
+
+      const textosVisiveis = [
+        ...PUZZLE.concepts.map((concept) => concept.label),
+        ...PUZZLE.concepts.map((concept) => concept.selo || ""),
+        ...Object.values(PUZZLE.dicasTriade),
+      ];
+      assertBoot(
+        textosVisiveis.every((texto) => !/[\u2014\u2013]/.test(texto)),
+        `${PUZZLE.id} contém travessão em texto visível`,
+      );
+
+      const ordemEmbaralhadaA = ordenarPecasIniciais(PUZZLE);
+      const ordemEmbaralhadaB = ordenarPecasIniciais(PUZZLE);
+      assertBoot(
+        ordemEmbaralhadaA.map((concept) => concept.id).join("|")
+          === ordemEmbaralhadaB.map((concept) => concept.id).join("|"),
+        `${PUZZLE.id} deve produzir embaralhamento determinístico`,
+      );
+      assertBoot(
+        contarAdjacenciasDeResposta(PUZZLE, ordemEmbaralhadaA)
+          === minimoTeoricoAdjacencias(PUZZLE),
+        `${PUZZLE.id} não atingiu o mínimo teórico de adjacências`,
+      );
+
+      const posicoesIniciais = calcularPosicoesIniciais(PUZZLE, visaoPuzzle);
+      const nosIniciais = PUZZLE.concepts.map((concept) => ({
+        id: concept.id,
+        ...visaoPuzzle[concept.id],
+        ...posicoesIniciais[concept.id],
+      }));
+      for (const no of nosIniciais) {
+        assertBoot(
+          Number.isFinite(no.x) && Number.isFinite(no.y)
+            && no.x >= 0 && no.x <= W - no.width
+            && no.y >= 0 && no.y <= H - no.height,
+          `auto-layout deixou ${PUZZLE.id}.${no.id} fora do clamp`,
+        );
+      }
+      for (let i = 0; i < nosIniciais.length; i++) {
+        for (let j = i + 1; j < nosIniciais.length; j++) {
+          assertBoot(
+            !intersectam(nosIniciais[i], nosIniciais[j]),
+            `auto-layout sobrepôs ${PUZZLE.id}.${nosIniciais[i].id} e ${nosIniciais[j].id}`,
+          );
+        }
+      }
+
+      const estadoDesistencia = { placements: {}, positions: {} };
+      for (const concept of PUZZLE.concepts) {
+        estadoDesistencia.positions[concept.id] = { ...posicoesIniciais[concept.id] };
+        if (!concept.fixo) estadoDesistencia.placements[concept.id] = null;
+      }
+      aplicarSolucaoELayout(PUZZLE, estadoDesistencia, visaoPuzzle);
+      assertBoot(
+        validar(PUZZLE, estadoDesistencia.placements).completo === true,
+        "desistir deve aplicar uma solução completa",
+      );
+      for (const concept of PUZZLE.concepts) {
+        const pos = estadoDesistencia.positions[concept.id];
+        const dimensao = visaoPuzzle[concept.id];
+        assertBoot(
+          pos.x >= 0 && pos.x <= W - dimensao.width
+            && pos.y >= 0 && pos.y <= H - dimensao.height,
+          `layout de desistência deixou ${concept.id} fora do clamp`,
+        );
+      }
+      if (PUZZLE.id === "p05") {
+        const nosDesistencia = PUZZLE.concepts.map((concept) => ({
+          id: concept.id,
+          ...visaoPuzzle[concept.id],
+          ...estadoDesistencia.positions[concept.id],
+        }));
+        for (let i = 0; i < nosDesistencia.length; i++) {
+          for (let j = i + 1; j < nosDesistencia.length; j++) {
+            assertBoot(
+              !intersectam(nosDesistencia[i], nosDesistencia[j]),
+              `layout de desistência sobrepôs p05.${nosDesistencia[i].id} e ${nosDesistencia[j].id}`,
+            );
+          }
+        }
+        const cadeia = ["consequencia", "alagou", "escoou", "bueiros", "limpou", "calendario"];
+        for (let i = 1; i < cadeia.length; i++) {
+          assertBoot(
+            estadoDesistencia.positions[cadeia[i]].y > estadoDesistencia.positions[cadeia[i - 1]].y,
+            "a cadeia do P05 deve descer em y estritamente crescente",
+          );
+        }
+      }
+    }
+
+    function executarBootTest(contexto, visoesPorPuzzle) {
+      assertBoot(Array.isArray(PUZZLES) && PUZZLES.length > 0, "PUZZLES deve conter ao menos uma fase");
+      const idsPuzzle = new Set();
+      for (const puzzle of PUZZLES) {
+        assertBoot(!idsPuzzle.has(puzzle.id), `id de puzzle duplicado: ${puzzle.id}`);
+        idsPuzzle.add(puzzle.id);
+        executarBootTestPuzzle(puzzle, visoesPorPuzzle.get(puzzle));
+      }
+
+      const p02 = PUZZLES.find((puzzle) => puzzle.id === "p02");
+      const p02Aninhado = {
+        numero_2: "numero",
+        numero_40: "numero_2",
+        texto_mamifero: "texto",
+        texto_baleia: "texto_mamifero",
+        data_1758: "data",
+        data_terca_feira: "data_1758",
+      };
+      assertBoot(
+        validar(p02, p02Aninhado).completo === true,
+        "P02 deve aceitar a categoria correta em qualquer ancestral",
+      );
+      const p02NumeroSobTexto = { ...p02Aninhado, numero_40: "texto_baleia" };
+      assertBoot(
+        validar(p02, p02NumeroSobTexto).porNo.numero_40 === "erro",
+        "P02 deve rejeitar um número colocado sob uma cadeia de Texto",
+      );
+
+      const p04 = PUZZLES.find((puzzle) => puzzle.id === "p04");
+      const p04PaiIndireto = {
+        inverno_dias_curtos: null,
+        chuva_alaga_rua: null,
+        calor_equador: null,
+        pior_clima: "sol_dia_feliz",
+        sol_dia_feliz: "opiniao",
+      };
+      assertBoot(
+        validar(p04, p04PaiIndireto).porNo.pior_clima === "erro",
+        "fases diretas não podem aceitar o grupo apenas como ancestral",
+      );
+
+      const p05 = PUZZLES.find((puzzle) => puzzle.id === "p05");
+      const consequencia = p05.concepts.find((concept) => concept.id === "consequencia");
+      const alagou = p05.concepts.find((concept) => concept.id === "alagou");
+      const calendario = p05.concepts.find((concept) => concept.id === "calendario");
+      assertBoot(consequencia.fixo === true, "P05 deve ter Consequência como poste fixo");
+      assertBoot(alagou.fixo === false, "A rua alagou deve ser uma peça móvel no P05");
+      assertBoot(
+        p05.solution.alagou.acceptedParents[0] === "consequencia",
+        "a cadeia do P05 deve começar em Consequência",
+      );
+      assertBoot(calendario.selo === "CAUSA RAIZ", "calendário deve ter o selo CAUSA RAIZ");
+      assertBoot(
+        PUZZLES.flatMap((puzzle) => puzzle.concepts).filter((concept) => concept.selo).length === 1,
+        "somente calendário deve ter selo na Onda 1",
+      );
+
+      const visaoCalendario = visoesPorPuzzle.get(p05).calendario;
+      assertBoot(
+        visaoCalendario.boxOffsetY > 0
+          && visaoCalendario.height === visaoCalendario.boxOffsetY + visaoCalendario.boxHeight,
+        "o selo deve ampliar a pegada sem alterar a caixa real",
+      );
+      const paiSelo = { id: "pai-selo", x: 100, y: 100, width: 120, height: 46, boxOffsetY: 0, boxHeight: 46 };
+      const filhoSelo = { id: "filho-selo", x: 100, y: 260, ...visaoCalendario };
+      const ancoraSelo = ancorasConexao(paiSelo, filhoSelo);
+      assertBoot(
+        ancoraSelo.entrada.y === filhoSelo.y + filhoSelo.boxOffsetY,
+        "a conexão deve entrar na caixa real, abaixo do selo",
+      );
+      assertBoot(calcularPontosDaFase({ desistiu: false, dicasGastas: 0 }) === 100, "score sem dica deve valer 100");
+      assertBoot(calcularPontosDaFase({ desistiu: false, dicasGastas: 1 }) === 80, "score com uma dica deve valer 80");
+      assertBoot(calcularPontosDaFase({ desistiu: false, dicasGastas: 2 }) === 60, "score com duas dicas deve valer 60");
+      assertBoot(calcularPontosDaFase({ desistiu: false, dicasGastas: 3 }) === 40, "score com três dicas deve valer 40");
+      assertBoot(calcularPontosDaFase({ desistiu: false, dicasGastas: 9 }) === 0, "score deve ter piso zero");
+      assertBoot(calcularPontosDaFase({ desistiu: true, dicasGastas: 0 }) === 0, "desistência deve valer zero");
+
+      const curto = calcularVisaoConcept(contexto, { id: "boot-curto", label: "Ave" });
+      assertBoot(
+        curto.width >= NO_MIN_LARGURA && curto.height >= NO_MIN_ALTURA,
+        "label curto deve respeitar as dimensões mínimas",
+      );
+
+      const longo = calcularVisaoConcept(contexto, {
+        id: "boot-longo",
+        label: "Classificação taxonômica com uma frase propositalmente longa para quebrar em linhas",
+      });
+      const larguraUtil = NO_LARGURA_MAX - 2 * NO_PAD_X;
+      assertBoot(longo.linhas.length >= 2, "label longo deve produzir ao menos duas linhas");
+      assertBoot(longo.width <= NO_LARGURA_MAX, "label longo deve respeitar NO_LARGURA_MAX");
+      assertBoot(
+        longo.height >= longo.linhas.length * NO_LINHA_ALTURA + 2 * NO_PAD_Y,
+        "altura do label longo deve refletir a quantidade de linhas",
+      );
+      assertBoot(
+        longo.linhas.every((linha) => contexto.measureText(linha).width <= larguraUtil),
+        "nenhuma linha pode ultrapassar a largura útil",
+      );
+
+      let minimoMaiorQueTetoFalhou = false;
+      try {
+        calcularVisaoConcept(contexto, {
+          id: "boot-minimo-invalido",
+          label: "Inválido",
+          width: NO_LARGURA_MAX + 1,
+        });
+      } catch (erro) {
+        minimoMaiorQueTetoFalhou = String(erro.message).includes("excede NO_LARGURA_MAX");
+      }
+      assertBoot(minimoMaiorQueTetoFalhou, "width mínimo maior que o teto deve falhar explicitamente");
+
+      const arrastadoMaior = { id: "arrastado", x: 90, y: 90, width: 40, height: 40 };
+      const candidatoMaior = { id: "maior", x: 100, y: 100, width: 40, height: 40 };
+      const candidatoMenor = { id: "menor", x: 120, y: 120, width: 40, height: 40 };
+      assertBoot(
+        selecionarAlvoDrop(
+          [arrastadoMaior, candidatoMaior, candidatoMenor],
+          "arrastado",
+          arrastadoMaior,
+          { x: -100, y: -100 },
+          TOLERANCIA_ENCAIXE,
+        ).id === "maior",
+        "seletor de alvo deve escolher a maior área de interseção",
+      );
+
+      const arrastadoTolerancia = { id: "arrastado", x: 51, y: 100, width: 30, height: 30 };
+      const alvoSoTolerancia = { id: "tolerancia", x: 100, y: 100, width: 40, height: 40 };
+      assertBoot(
+        areaIntersecao(arrastadoTolerancia, alvoSoTolerancia) === 0
+          && selecionarAlvoDrop(
+            [arrastadoTolerancia, alvoSoTolerancia],
+            "arrastado",
+            arrastadoTolerancia,
+            { x: -100, y: -100 },
+            TOLERANCIA_ENCAIXE,
+          ).id === "tolerancia",
+        "seletor de alvo deve aceitar um nó alcançado somente pela tolerância",
+      );
+
+      const empateA = { id: "empate-a", x: 100, y: 100, width: 40, height: 40 };
+      const empateB = { id: "empate-b", x: 100, y: 100, width: 40, height: 40 };
+      assertBoot(
+        selecionarAlvoDrop(
+          [arrastadoMaior, empateA, empateB],
+          "arrastado",
+          arrastadoMaior,
+          { x: -100, y: -100 },
+          TOLERANCIA_ENCAIXE,
+        ).id === "empate-b",
+        "empate de interseção deve favorecer o maior índice",
+      );
+    }
+
+    // -----------------------------------------------------------------------
+    // ESTADO PLANO: posições e parentescos nunca formam árvore aninhada.
+    // -----------------------------------------------------------------------
+    const playerState = {
+      placements: {},
+      positions: {},
+    };
+
+    let faseAtual = 0;
+    let scoreTotal = 0;
+    let relatorio = validar(PUZZLE, playerState.placements);
+    let arrasto = null;
+    let ultimoPointerDown = null;
+    let resultadoFaseAtual = null;
+    let popupResultadoFinal = false;
+    let visaoNosAtual = null;
+    const estadoFase = {
+      dicasGastas: 0,
+      desistiu: false,
+    };
+    const estadoDicas = {
+      aberta: null,
+      gastas: { case_: false, rocky: false, tars: false },
+      fechando: false,
+      timerLeitura: null,
+      tokenLeitura: 0,
+      timerFechamento: null,
+      tokenFechamento: 0,
+    };
+    const fluxoFase = {
+      travada: false,
+      brilhando: false,
+      timers: [],
+    };
+
+    window.estadoFase = estadoFase;
+    Object.defineProperties(window, {
+      faseAtual: { configurable: true, get: () => faseAtual },
+      scoreTotal: { configurable: true, get: () => scoreTotal },
+    });
+
+    const canvas = document.getElementById("jogo-canvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const canvasMoldura = document.querySelector(".canvas-moldura");
+    const mensagem = document.getElementById("mensagem");
+    const botaoTema = document.getElementById("trocar-tema");
+    const botoesDica = Array.from(document.querySelectorAll(".botao-dica"));
+    const botaoDesistir = document.getElementById("desistir");
+    const painelDica = document.getElementById("painel-dica");
+    const fecharDica = document.getElementById("fechar-dica");
+    const rotuloTriade = document.getElementById("rotulo-triade");
+    const falaTriade = document.getElementById("fala-triade");
+    const paresSprites = Array.from(document.querySelectorAll(".sprite-par"));
+    const popupFim = document.getElementById("popup-fim");
+    const popupRotulo = document.getElementById("popup-rotulo");
+    const popupResultado = document.getElementById("popup-resultado");
+    const popupCalculo = document.getElementById("popup-calculo");
+    const popupPontos = document.getElementById("popup-pontos");
+    const popupTotal = document.getElementById("popup-total");
+    const popupAcao = document.getElementById("popup-acao");
+
+    let DPR_USADO = 1;
+
+    function configurarCanvasDPR() {
+      const dprAtual = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+        ? window.devicePixelRatio
+        : 1;
+      const backingWidth = Math.round(W * dprAtual);
+      const backingHeight = Math.round(H * dprAtual);
+      if (canvas.width !== backingWidth) canvas.width = backingWidth;
+      if (canvas.height !== backingHeight) canvas.height = backingHeight;
+      DPR_USADO = dprAtual;
+      ctx.setTransform(DPR_USADO, 0, 0, DPR_USADO, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    configurarCanvasDPR();
+    assertBoot(
+      canvas.width === Math.round(W * DPR_USADO) && canvas.height === Math.round(H * DPR_USADO),
+      "o backing store deve acompanhar o DPR no espaço lógico 960x600",
+    );
+
+    // Geometria textual é medida uma única vez, depois de o contexto existir.
+    const visoesPorPuzzle = new Map(
+      PUZZLES.map((puzzle) => [puzzle, calcularVisaoPuzzle(ctx, puzzle)]),
+    );
+    executarBootTest(ctx, visoesPorPuzzle);
+
+    function removerSweeps() {
+      for (const sweep of canvasMoldura.querySelectorAll(".selfx")) sweep.remove();
+    }
+
+    function cancelarTimersEncerramento() {
+      for (const timer of fluxoFase.timers) clearTimeout(timer);
+      fluxoFase.timers.length = 0;
+    }
+
+    function limparMapa(mapa) {
+      for (const chave of Object.keys(mapa)) delete mapa[chave];
+    }
+
+    // Única rotina que recria o estado de uma fase.
+    function carregarFase(indice) {
+      if (!Number.isInteger(indice) || indice < 0 || indice >= PUZZLES.length) {
+        throw new RangeError(`Fase inexistente: ${indice}`);
+      }
+
+      cancelarTimersEncerramento();
+      resetarPainelDica();
+      removerSweeps();
+      PUZZLE = PUZZLES[indice];
+      visaoNosAtual = visoesPorPuzzle.get(PUZZLE);
+      faseAtual = indice;
+
+      limparMapa(playerState.placements);
+      limparMapa(playerState.positions);
+      const posicoesIniciais = calcularPosicoesIniciais(PUZZLE, visaoNosAtual);
+      for (const concept of PUZZLE.concepts) {
+        playerState.positions[concept.id] = { ...posicoesIniciais[concept.id] };
+        if (!concept.fixo) playerState.placements[concept.id] = null;
+      }
+
+      estadoDicas.aberta = null;
+      for (const chave of Object.keys(estadoDicas.gastas)) estadoDicas.gastas[chave] = false;
+      estadoFase.dicasGastas = 0;
+      estadoFase.desistiu = false;
+      resultadoFaseAtual = null;
+      popupResultadoFinal = false;
+      fluxoFase.travada = false;
+      fluxoFase.brilhando = false;
+      arrasto = null;
+      ultimoPointerDown = null;
+
+      canvas.classList.remove("arrastando");
+      painelDica.hidden = true;
+      popupFim.hidden = true;
+      esconderPersonagens();
+      relatorio = validar(PUZZLE, playerState.placements);
+      atualizarMensagem();
+    }
+
+    function montarNos() {
+      return PUZZLE.concepts.map((concept) => {
+        const pos = playerState.positions[concept.id];
+        return { ...concept, ...visaoNosAtual[concept.id], x: pos.x, y: pos.y };
+      });
+    }
+
+    function noSobPonto(mx, my, nos, idIgnorado = null) {
+      for (let i = nos.length - 1; i >= 0; i--) {
+        const n = nos[i];
+        if (n.id === idIgnorado) continue;
+        if (mx >= n.x && mx <= n.x + n.width && my >= n.y && my <= n.y + n.height) {
+          return n;
+        }
+      }
+      return null;
+    }
+
+    function pontoNoRetangulo(ponto, retangulo) {
+      return ponto.x >= retangulo.x && ponto.x <= retangulo.x + retangulo.width
+        && ponto.y >= retangulo.y && ponto.y <= retangulo.y + retangulo.height;
+    }
+
+    function expandirRetangulo(retangulo, tolerancia) {
+      return {
+        x: retangulo.x - tolerancia,
+        y: retangulo.y - tolerancia,
+        width: retangulo.width + tolerancia * 2,
+        height: retangulo.height + tolerancia * 2,
+      };
+    }
+
+    function areaIntersecao(a, b) {
+      const largura = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x));
+      const altura = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+      return largura * altura;
+    }
+
+    // Seletor puro: maior área contra a hitbox expandida; empate favorece o maior índice.
+    function selecionarAlvoDrop(nos, idArrastado, retanguloArrastado, ponto, tolerancia) {
+      let melhor = null;
+      let melhorArea = -1;
+      let melhorIndice = -1;
+
+      for (let i = 0; i < nos.length; i++) {
+        const candidato = nos[i];
+        if (candidato.id === idArrastado) continue;
+        const expandido = expandirRetangulo(candidato, tolerancia);
+        const area = areaIntersecao(retanguloArrastado, expandido);
+        const qualifica = pontoNoRetangulo(ponto, candidato) || area > 0;
+        if (!qualifica) continue;
+        if (area > melhorArea || (area === melhorArea && i > melhorIndice)) {
+          melhor = candidato;
+          melhorArea = area;
+          melhorIndice = i;
+        }
+      }
+      return melhor;
+    }
+
+    function ehDescendente(possivelDescendente, ancestral, placements) {
+      let atual = possivelDescendente;
+      const visitados = new Set();
+      while (atual != null) {
+        if (atual === ancestral) return true;
+        if (visitados.has(atual)) return true;
+        visitados.add(atual);
+        atual = placements[atual];
+      }
+      return false;
+    }
+
+    function pontoLogico(evento) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (evento.clientX - rect.left) * (W / rect.width),
+        y: (evento.clientY - rect.top) * (H / rect.height),
+      };
+    }
+
+    function limitarPosicao(id) {
+      const dimensao = visaoNosAtual[id];
+      const pos = playerState.positions[id];
+      pos.x = clamp(Math.round(pos.x), 0, W - dimensao.width);
+      pos.y = clamp(Math.round(pos.y), 0, H - dimensao.height);
+    }
+
+    function intersectam(a, b) {
+      return a.x < b.x + b.width && a.x + a.width > b.x
+        && a.y < b.y + b.height && a.y + a.height > b.y;
+    }
+
+    function corrigirSobreposicao(idFilho, pai) {
+      const dimensao = visaoNosAtual[idFilho];
+      const pos = playerState.positions[idFilho];
+      const filho = { id: idFilho, ...dimensao, x: pos.x, y: pos.y };
+      if (!intersectam(filho, pai)) return;
+
+      const centroPai = centro(pai);
+      const centroFilho = centro(filho);
+      const dx = centroFilho.x - centroPai.x;
+      const dy = centroFilho.y - centroPai.y;
+
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Empate, inclusive centros coincidentes, resolve deterministicamente para baixo.
+        pos.y = dy >= 0
+          ? pai.y + pai.height + FOLGA_SOBREPOSICAO
+          : pai.y - dimensao.height - FOLGA_SOBREPOSICAO;
+      } else {
+        pos.x = dx >= 0
+          ? pai.x + pai.width + FOLGA_SOBREPOSICAO
+          : pai.x - dimensao.width - FOLGA_SOBREPOSICAO;
+      }
+    }
+
+    function desconectar(id) {
+      if (fluxoFase.travada) return;
+      const concept = PUZZLE.concepts.find((c) => c.id === id);
+      if (!concept || concept.fixo) return;
+      playerState.placements[id] = null;
+      relatorio = validar(PUZZLE, playerState.placements);
+      atualizarMensagem();
+    }
+
+    function iniciarArrasto(evento) {
+      if (fluxoFase.travada || evento.button !== 0) return;
+      const ponto = pontoLogico(evento);
+      const no = noSobPonto(ponto.x, ponto.y, montarNos());
+      if (!no || no.fixo) {
+        ultimoPointerDown = null;
+        return;
+      }
+
+      const agora = performance.now();
+      if (
+        ultimoPointerDown
+        && ultimoPointerDown.id === no.id
+        && agora - ultimoPointerDown.tempo < LIMITE_DUPLO_CLIQUE_MS
+      ) {
+        desconectar(no.id);
+        ultimoPointerDown = null;
+        arrasto = null;
+        canvas.classList.remove("arrastando");
+        evento.preventDefault();
+        return;
+      }
+      ultimoPointerDown = { id: no.id, tempo: agora };
+
+      const pos = playerState.positions[no.id];
+      arrasto = {
+        id: no.id,
+        pointerId: evento.pointerId,
+        offsetX: ponto.x - pos.x,
+        offsetY: ponto.y - pos.y,
+        origem: { x: pos.x, y: pos.y },
+      };
+      canvas.setPointerCapture(evento.pointerId);
+      canvas.classList.add("arrastando");
+      evento.preventDefault();
+    }
+
+    function moverArrasto(evento) {
+      if (fluxoFase.travada || !arrasto || evento.pointerId !== arrasto.pointerId) return;
+      const ponto = pontoLogico(evento);
+      const pos = playerState.positions[arrasto.id];
+      pos.x = Math.round(ponto.x - arrasto.offsetX);
+      pos.y = Math.round(ponto.y - arrasto.offsetY);
+      evento.preventDefault();
+    }
+
+    function concluirArrasto(evento) {
+      if (fluxoFase.travada || !arrasto || evento.pointerId !== arrasto.pointerId) return;
+      const ponto = pontoLogico(evento);
+      const dadosArrasto = arrasto;
+      const nos = montarNos();
+      const noArrastado = nos.find((no) => no.id === dadosArrasto.id);
+      const alvo = selecionarAlvoDrop(nos, dadosArrasto.id, noArrastado, ponto, TOLERANCIA_ENCAIXE);
+      const pos = playerState.positions[dadosArrasto.id];
+
+      // Ciclo é checado antes de qualquer mutação do parentesco.
+      if (alvo && ehDescendente(alvo.id, dadosArrasto.id, playerState.placements)) {
+        pos.x = dadosArrasto.origem.x;
+        pos.y = dadosArrasto.origem.y;
+      } else if (alvo) {
+        playerState.placements[dadosArrasto.id] = alvo.id;
+        corrigirSobreposicao(dadosArrasto.id, alvo);
+      }
+      // No vazio, placements permanece intocado: mover não desconecta.
+
+      limitarPosicao(dadosArrasto.id);
+      relatorio = validar(PUZZLE, playerState.placements);
+      arrasto = null;
+      canvas.classList.remove("arrastando");
+      if (canvas.hasPointerCapture(evento.pointerId)) canvas.releasePointerCapture(evento.pointerId);
+      atualizarMensagem();
+      evento.preventDefault();
+    }
+
+    function cancelarArrasto(evento) {
+      if (fluxoFase.travada || !arrasto || evento.pointerId !== arrasto.pointerId) return;
+      const pos = playerState.positions[arrasto.id];
+      pos.x = arrasto.origem.x;
+      pos.y = arrasto.origem.y;
+      arrasto = null;
+      canvas.classList.remove("arrastando");
+    }
+
+    function desconectarPorDuploClique(evento) {
+      if (fluxoFase.travada) return;
+      const ponto = pontoLogico(evento);
+      const no = noSobPonto(ponto.x, ponto.y, montarNos());
+      if (no && !no.fixo) desconectar(no.id);
+      ultimoPointerDown = null;
+      evento.preventDefault();
+    }
+
+    function pontilhado(contexto, x1, y1, x2, y2) {
+      if (x1 === x2 && y1 === y2) return;
+      const horizontal = y1 === y2;
+      const vertical = x1 === x2;
+      if (!horizontal && !vertical) throw new Error("Conexão diagonal proibida");
+
+      const distancia = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+      const direcao = horizontal ? Math.sign(x2 - x1) : Math.sign(y2 - y1);
+      for (let d = 0; d <= distancia; d += PASSO_PONTILHADO) {
+        const x = horizontal ? x1 + d * direcao : x1;
+        const y = vertical ? y1 + d * direcao : y1;
+        contexto.fillRect(x | 0, y | 0, TAMANHO_PONTO, TAMANHO_PONTO);
+      }
+    }
+
+    function desenharSetaPixel(contexto, entrada, direcao) {
+      const tamanhos = [6, 4, 2];
+      for (let i = 0; i < tamanhos.length; i++) {
+        const tamanho = tamanhos[i];
+        if (direcao.y > 0) {
+          contexto.fillRect(entrada.x - tamanho / 2, entrada.y - 6 + i * 2, tamanho, 2);
+        } else if (direcao.y < 0) {
+          contexto.fillRect(entrada.x - tamanho / 2, entrada.y + 4 - i * 2, tamanho, 2);
+        } else if (direcao.x > 0) {
+          contexto.fillRect(entrada.x - 6 + i * 2, entrada.y - tamanho / 2, 2, tamanho);
+        } else {
+          contexto.fillRect(entrada.x + 4 - i * 2, entrada.y - tamanho / 2, 2, tamanho);
+        }
+      }
+    }
+
+    function conexaoIma(contexto, pai, filho, cor) {
+      const rota = ancorasConexao(pai, filho);
+      contexto.fillStyle = cor;
+      if (rota.dominante === "vertical") {
+        pontilhado(contexto, rota.saida.x, rota.saida.y, rota.saida.x, rota.junction);
+        pontilhado(contexto, rota.saida.x, rota.junction, rota.entrada.x, rota.junction);
+        pontilhado(contexto, rota.entrada.x, rota.junction, rota.entrada.x, rota.entrada.y);
+      } else {
+        pontilhado(contexto, rota.saida.x, rota.saida.y, rota.junction, rota.saida.y);
+        pontilhado(contexto, rota.junction, rota.saida.y, rota.junction, rota.entrada.y);
+        pontilhado(contexto, rota.junction, rota.entrada.y, rota.entrada.x, rota.entrada.y);
+      }
+      desenharSetaPixel(contexto, rota.entrada, rota.direcaoEntrada);
+    }
+
+    function desenharFundo(tema, t) {
+      ctx.fillStyle = tema.bg;
+      ctx.fillRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = false;
+
+      const PHOS = tema.ditherDots;
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const sx = W * 0.44;
+      const sy = H * 0.5;
+
+      for (let y = 0; y < H; y += CELL) {
+        for (let x = 0; x < W; x += CELL) {
+          const nx = (x - cx) / sx;
+          const ny = (y - cy) / sy;
+          const mass = Math.exp(-(nx * nx * 1.95 + ny * ny * 2.6));
+          const wave = mass * DENSIDADE * (0.40 + 0.20 * Math.sin(x * 0.012 + y * 0.004 + 2 * Math.PI * t));
+          if (wave > BAYER[((y / CELL) | 0) % 4][((x / CELL) | 0) % 4] / 16) {
+            ctx.fillStyle = PHOS[(((x / 72) | 0) + ((y / 84) | 0)) % 3];
+            ctx.fillRect(x, y, TAMANHO_PONTO, TAMANHO_PONTO);
+          }
+        }
+      }
+    }
+
+    function desenharConexoes(nos, tema) {
+      const porId = Object.fromEntries(nos.map((no) => [no.id, no]));
+      for (const filho of nos) {
+        const paiId = playerState.placements[filho.id];
+        if (paiId == null) continue;
+        const pai = porId[paiId];
+        if (pai) conexaoIma(ctx, pai, filho, tema.linha);
+      }
+    }
+
+    function corDoNo(no, tema) {
+      if (no.fixo) return tema.noFixo;
+      if (relatorio.porNo[no.id] === "ok") return tema.noOk;
+      if (relatorio.porNo[no.id] === "erro") return tema.noErro;
+      return tema.noNeutro;
+    }
+
+    function desenharNos(nos, tema) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      configurarFonteNos(ctx);
+
+      for (const no of nos) {
+        const x = no.x | 0;
+        const y = (no.y + no.boxOffsetY) | 0;
+        const centroX = Math.round(x + no.width / 2);
+        if (no.seloTexto) {
+          configurarFonteSelo(ctx);
+          ctx.fillStyle = tema.noErro;
+          ctx.fillText(no.seloTexto, centroX, Math.round(no.y + SELO_LINHA_ALTURA / 2));
+          configurarFonteNos(ctx);
+        }
+        ctx.fillStyle = tema.ink;
+        ctx.fillRect(x, y, no.width, no.boxHeight);
+        ctx.fillStyle = corDoNo(no, tema);
+        ctx.fillRect(x + BORDA_NO, y + BORDA_NO, no.width - BORDA_NO * 2, no.boxHeight - BORDA_NO * 2);
+        if (fluxoFase.brilhando && relatorio.porNo[no.id] === "ok") {
+          ctx.fillStyle = tema.selecaoNo;
+          ctx.fillRect(x, y, no.width, no.boxHeight);
+        }
+        ctx.fillStyle = tema.inkNo;
+        const centroY = y + no.boxHeight / 2;
+        const deslocamentoInicial = -((no.linhas.length - 1) * NO_LINHA_ALTURA) / 2;
+        for (let i = 0; i < no.linhas.length; i++) {
+          const linhaY = Math.round(centroY + deslocamentoInicial + i * NO_LINHA_ALTURA);
+          ctx.fillText(no.linhas[i], centroX, linhaY);
+        }
+      }
+    }
+
+    function inserirSweep() {
+      removerSweeps();
+      const sweep = document.createElement("div");
+      sweep.className = "selfx";
+      sweep.setAttribute("aria-hidden", "true");
+      canvasMoldura.appendChild(sweep);
+    }
+
+    function preencherLinhasCalculo(linhas) {
+      popupCalculo.replaceChildren();
+      for (const texto of linhas) {
+        const linha = document.createElement("span");
+        linha.textContent = texto;
+        popupCalculo.appendChild(linha);
+      }
+    }
+
+    function abrirPopupDaFase() {
+      if (!resultadoFaseAtual) return;
+      popupResultadoFinal = false;
+      popupRotulo.textContent = `//FASE_${String(resultadoFaseAtual.fase + 1).padStart(2, "0")}_`;
+      popupResultado.textContent = resultadoFaseAtual.desistiu
+        ? "DESISTÊNCIA"
+        : "CONSTELAÇÃO COMPLETA";
+      const linhas = [
+        `Base: ${PONTOS_BASE}`,
+        `Dicas usadas: ${resultadoFaseAtual.dicasGastas} (−${PENALIDADE_DICA} cada)`,
+      ];
+      if (resultadoFaseAtual.desistiu) linhas.push("Fase não pontuada");
+      preencherLinhasCalculo(linhas);
+      popupPontos.textContent = `Pontos da fase: ${resultadoFaseAtual.pontos}`;
+      popupTotal.textContent = `Score total: ${resultadoFaseAtual.scoreTotal}`;
+      popupAcao.textContent = faseAtual < PUZZLES.length - 1
+        ? "PRÓXIMA FASE"
+        : "VER RESULTADO";
+      popupFim.hidden = false;
+      popupAcao.focus();
+    }
+
+    function abrirPopupResultadoFinal() {
+      popupResultadoFinal = true;
+      popupRotulo.textContent = "//RESULTADO_";
+      popupResultado.textContent = "RESULTADO FINAL";
+      preencherLinhasCalculo([]);
+      popupPontos.textContent = `Score final: ${scoreTotal} de ${PONTOS_BASE * PUZZLES.length}`;
+      popupTotal.textContent = "";
+      popupAcao.textContent = "JOGAR DE NOVO";
+      popupFim.hidden = false;
+      popupAcao.focus();
+    }
+
+    function concluirBrilhoEExibirPopup() {
+      if (!fluxoFase.travada || !resultadoFaseAtual) return;
+      cancelarTimersEncerramento();
+      removerSweeps();
+      fluxoFase.brilhando = false;
+      abrirPopupDaFase();
+    }
+
+    function iniciarEncerramentoFase() {
+      if (fluxoFase.travada || !relatorio.completo) return;
+      fluxoFase.travada = true;
+      arrasto = null;
+      ultimoPointerDown = null;
+      canvas.classList.remove("arrastando");
+
+      // Todo fechamento gasta, inclusive uma dica aberta no instante da conclusão.
+      fecharDicaImediata();
+      const pontos = calcularPontosDaFase(estadoFase);
+      scoreTotal += pontos;
+      resultadoFaseAtual = Object.freeze({
+        fase: faseAtual,
+        desistiu: estadoFase.desistiu,
+        dicasGastas: estadoFase.dicasGastas,
+        pontos,
+        scoreTotal,
+      });
+      atualizarControlesFase();
+
+      if (MOVIMENTO_REDUZIDO.matches) {
+        concluirBrilhoEExibirPopup();
+        return;
+      }
+
+      fluxoFase.brilhando = true;
+      inserirSweep();
+      fluxoFase.timers.push(setTimeout(() => {
+        if (fluxoFase.brilhando) inserirSweep();
+      }, INTERVALO_SWEEP_MS));
+      fluxoFase.timers.push(setTimeout(concluirBrilhoEExibirPopup, DURACAO_BRILHO_MS));
+    }
+
+    function acionarPopup() {
+      if (popupResultadoFinal) {
+        scoreTotal = 0;
+        carregarFase(0);
+      } else if (faseAtual < PUZZLES.length - 1) {
+        carregarFase(faseAtual + 1);
+      } else {
+        abrirPopupResultadoFinal();
+      }
+    }
+
+    function atualizarMensagem() {
+      if (estadoFase.desistiu) {
+        mensagem.textContent = "Resolvido por desistência. Fase não pontuada.";
+      } else if (relatorio.completo) {
+        mensagem.textContent = "Constelação completa. Todos os conceitos encontraram seu grupo.";
+      } else {
+        mensagem.textContent = relatorio.proximaDica;
+      }
+      painelDica.classList.toggle("puzzle-completo", relatorio.completo);
+      atualizarControlesFase();
+      if (relatorio.completo) iniciarEncerramentoFase();
+    }
+
+    // Estado de dica é interface pura e não pertence a playerState.
+    function atualizarControlesFase() {
+      for (const botao of botoesDica) {
+        const chave = botao.dataset.dica;
+        botao.disabled = fluxoFase.travada || estadoDicas.fechando || estadoDicas.gastas[chave];
+        botao.setAttribute("aria-expanded", String(estadoDicas.aberta === chave));
+      }
+      botaoDesistir.disabled = fluxoFase.travada || relatorio.completo;
+      canvas.setAttribute("aria-disabled", String(fluxoFase.travada));
+    }
+
+    function esconderPersonagens() {
+      for (const par of paresSprites) par.hidden = true;
+    }
+
+    function cancelarTimerLeituraDica() {
+      if (estadoDicas.timerLeitura != null) clearTimeout(estadoDicas.timerLeitura);
+      estadoDicas.timerLeitura = null;
+      estadoDicas.tokenLeitura += 1;
+    }
+
+    function cancelarFechamentoDica() {
+      if (estadoDicas.timerFechamento != null) clearTimeout(estadoDicas.timerFechamento);
+      estadoDicas.timerFechamento = null;
+      estadoDicas.tokenFechamento += 1;
+      estadoDicas.fechando = false;
+      painelDica.classList.remove("saindo");
+    }
+
+    function gastarDicaAberta() {
+      if (estadoDicas.aberta == null) return false;
+      const chave = estadoDicas.aberta;
+      if (!estadoDicas.gastas[chave]) {
+        estadoDicas.gastas[chave] = true;
+        estadoFase.dicasGastas += 1;
+        return true;
+      }
+      return false;
+    }
+
+    function concluirPainelFechado() {
+      estadoDicas.aberta = null;
+      estadoDicas.fechando = false;
+      estadoDicas.timerFechamento = null;
+      painelDica.classList.remove("saindo");
+      painelDica.hidden = true;
+      esconderPersonagens();
+      atualizarControlesFase();
+    }
+
+    function resetarPainelDica() {
+      cancelarTimerLeituraDica();
+      cancelarFechamentoDica();
+      estadoDicas.aberta = null;
+      painelDica.hidden = true;
+      esconderPersonagens();
+    }
+
+    function fecharDicaImediata() {
+      cancelarTimerLeituraDica();
+      cancelarFechamentoDica();
+      gastarDicaAberta();
+      concluirPainelFechado();
+    }
+
+    function concluirFechamentoAnimado(token) {
+      if (!estadoDicas.fechando || token !== estadoDicas.tokenFechamento) return;
+      concluirPainelFechado();
+    }
+
+    function fecharDicaAnimada() {
+      if (estadoDicas.aberta == null || estadoDicas.fechando) return;
+      cancelarTimerLeituraDica();
+      gastarDicaAberta();
+
+      if (MOVIMENTO_REDUZIDO.matches) {
+        cancelarFechamentoDica();
+        concluirPainelFechado();
+        return;
+      }
+
+      cancelarFechamentoDica();
+      estadoDicas.fechando = true;
+      const token = estadoDicas.tokenFechamento;
+      painelDica.classList.add("saindo");
+      atualizarControlesFase();
+      estadoDicas.timerFechamento = setTimeout(
+        () => concluirFechamentoAnimado(token),
+        DURACAO_FECHAMENTO_DICA_MS,
+      );
+    }
+
+    function iniciarTimerLeituraDica() {
+      cancelarTimerLeituraDica();
+      const token = estadoDicas.tokenLeitura;
+      estadoDicas.timerLeitura = setTimeout(() => {
+        if (
+          token !== estadoDicas.tokenLeitura
+          || estadoDicas.aberta == null
+          || estadoDicas.fechando
+          || fluxoFase.travada
+        ) return;
+        estadoDicas.timerLeitura = null;
+        fecharDicaAnimada();
+      }, TEMPO_DICA_MS);
+    }
+
+    function abrirDicaTriade(chave) {
+      if (
+        fluxoFase.travada
+        || estadoDicas.fechando
+        || !CONFIG_TRIADE[chave]
+        || estadoDicas.gastas[chave]
+      ) return;
+      if (estadoDicas.aberta === chave) return;
+      if (estadoDicas.aberta != null) {
+        cancelarTimerLeituraDica();
+        gastarDicaAberta();
+      }
+
+      estadoDicas.aberta = chave;
+      painelDica.classList.remove("saindo");
+      rotuloTriade.textContent = CONFIG_TRIADE[chave].rotulo;
+      falaTriade.textContent = PUZZLE.dicasTriade[chave];
+      for (const par of paresSprites) {
+        par.hidden = par.dataset.personagem !== chave;
+      }
+      painelDica.hidden = false;
+      atualizarControlesFase();
+      iniciarTimerLeituraDica();
+    }
+
+    function desistirDaFase() {
+      if (fluxoFase.travada || relatorio.completo) return;
+
+      // Todo fechamento gasta: uma dica aberta é contabilizada antes de encerrar a fase.
+      fecharDicaImediata();
+      aplicarSolucaoELayout(PUZZLE, playerState, visaoNosAtual);
+      relatorio = validar(PUZZLE, playerState.placements);
+      estadoFase.desistiu = true;
+      arrasto = null;
+      ultimoPointerDown = null;
+      canvas.classList.remove("arrastando");
+      atualizarMensagem();
+    }
+
+    function aplicarTemaNaInterface() {
+      const tema = TEMAS[TEMA_ATUAL];
+      const raiz = document.documentElement;
+      raiz.style.setProperty("--pagina", tema.bg);
+      raiz.style.setProperty("--painel", tema.painel);
+      raiz.style.setProperty("--ink", tema.ink);
+      raiz.style.setProperty("--linha", tema.linha);
+      raiz.style.setProperty("--destrutivo", tema.noErro);
+      raiz.style.setProperty("--contraste-destrutivo", tema.inkNo);
+      raiz.style.colorScheme = TEMA_ATUAL === "escuro" ? "dark" : "light";
+      raiz.dataset.tema = TEMA_ATUAL;
+      botaoTema.setAttribute("aria-pressed", String(TEMA_ATUAL === "claro"));
+    }
+
+    function render(timestamp) {
+      const tema = TEMAS[TEMA_ATUAL];
+      const t = MOVIMENTO_REDUZIDO.matches
+        ? 0
+        : (timestamp % CICLO_DITHER_MS) / CICLO_DITHER_MS;
+      const nos = montarNos();
+      ctx.imageSmoothingEnabled = false;
+      desenharFundo(tema, t);
+      desenharConexoes(nos, tema);
+      desenharNos(nos, tema);
+      requestAnimationFrame(render);
+    }
+
+    canvas.addEventListener("pointerdown", iniciarArrasto);
+    canvas.addEventListener("pointermove", moverArrasto);
+    canvas.addEventListener("pointerup", concluirArrasto);
+    canvas.addEventListener("pointercancel", cancelarArrasto);
+    canvas.addEventListener("dblclick", desconectarPorDuploClique);
+
+    for (const botao of botoesDica) {
+      botao.addEventListener("click", () => abrirDicaTriade(botao.dataset.dica));
+    }
+    fecharDica.addEventListener("click", fecharDicaAnimada);
+    botaoDesistir.addEventListener("click", desistirDaFase);
+    popupAcao.addEventListener("click", acionarPopup);
+
+    botaoTema.addEventListener("click", () => {
+      TEMA_ATUAL = TEMA_ATUAL === "escuro" ? "claro" : "escuro";
+      aplicarTemaNaInterface();
+    });
+
+    window.addEventListener("resize", configurarCanvasDPR);
+    if (typeof MOVIMENTO_REDUZIDO.addEventListener === "function") {
+      MOVIMENTO_REDUZIDO.addEventListener("change", (evento) => {
+        if (evento.matches && fluxoFase.brilhando) concluirBrilhoEExibirPopup();
+      });
+    }
+
+    aplicarTemaNaInterface();
+    carregarFase(0);
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

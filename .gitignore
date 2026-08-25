@@ -1,0 +1,10 @@
+# --- segredos/credenciais (defensivo, nenhum presente hoje) ---
+.env
+.env.*
+*.pem
+*.key
+*credential*
+
+# --- sistema operacional ---
+.DS_Store
+Thumbs.db
