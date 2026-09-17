@@ -2,13 +2,15 @@
 
 # Constelação Taxonômica
 
+### ▶ [**Play in the browser →**](https://whatevertr.github.io/jogo-taxonomia/)
+
 A small browser puzzle game about **organizing context into taxonomies**. You drag concepts and connect them under the right group, building a classification tree. It is, basically, the [Constellation Method](https://github.com/whatevertr/constellation-method) as a game: the skill of putting scattered information into the right structure, practiced level by level.
 
 > **Status.** Work in progress. This is **Wave 1**: seven playable levels, from concrete taxonomies to epistemic distinctions. More levels (and a deeper engine) will come later, I have a day job and not much spare time.
 
 ## Play
 
-Open `index.html` and press **JOGAR**, or open the game file directly (`jogo.html`). No install, no server, works offline.
+**[Play now at whatevertr.github.io/jogo-taxonomia](https://whatevertr.github.io/jogo-taxonomia/)** — press **JOGAR**. No install, no server. (Prefer offline? Clone the repo and open `index.html` locally; it works with no server.)
 
 - **Drag** a concept and **drop it onto** another to connect it.
 - Drop on empty space to just **move**; **double click** to disconnect.
