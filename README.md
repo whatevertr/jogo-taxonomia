@@ -1,5 +1,7 @@
 <p align="right"><a href="README.pt-BR.md">🇧🇷 Português</a></p>
 
+<p align="center"><a href="https://whatevertr.github.io/jogo-taxonomia/"><img src="assets/banner.svg" alt="Constelação Taxonômica" width="100%"></a></p>
+
 # Constelação Taxonômica
 
 ### ▶ [**Play in the browser →**](https://whatevertr.github.io/jogo-taxonomia/)
